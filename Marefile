@@ -1,0 +1,7 @@
+
+targets = {
+  include "libzlimdbclient.mare"
+  libzlimdbclient += {
+    buildDir = "build/$(configuration)"
+  }
+}

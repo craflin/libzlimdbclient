@@ -1,0 +1,14 @@
+
+libzlimdbclient = cStaticLibrary + {
+  root = { "$(mareDir)/src", "$(mareDir)/include" }
+  includePaths = { "$(mareDir)/include" }
+  files = {
+    "$(mareDir)/src/*.c" = cSource
+    "$(mareDir)/src/*.h"
+    "$(mareDir)/include/*.h"
+  }
+  if tool == "vcxproj" {
+    libs += { "ws2_32" }
+    linkFlags += { "/SUBSYSTEM:CONSOLE" }
+  }
+}
