@@ -25,7 +25,7 @@ typedef int SOCKET;
 #define SOCKET_ERROR (-1)
 #endif
 
-struct zlimdb_t
+struct _zlimdb
 {
   SOCKET socket;
 #ifdef _WIN32

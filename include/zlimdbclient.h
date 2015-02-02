@@ -4,9 +4,7 @@
 
 #include "zlimdbprotocol.h"
 
-struct zlimdb_t;
-
-typedef struct zlimdb_t zlimdb;
+typedef struct _zlimdb zlimdb;
 
 typedef void (*zlimdb_callback)(void* user_data, void* data, unsigned short size);
 
