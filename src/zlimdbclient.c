@@ -99,7 +99,7 @@ zlimdb* zlimdb_create(zlimdb_callback callback, void* user_data)
   }
 #endif
   zdb->socket = INVALID_SOCKET;
-  zdb->error = zlimdb_no_error;
+  zdb->error = zlimdb_error_none;
   zdb->callback = callback;
   zdb->userData = user_data;
   return zdb;
@@ -129,7 +129,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, unsigned short port)
     return -1;
   if(zdb->socket != INVALID_SOCKET)
   {
-    zdb->error = zlimdb_state_error;
+    zdb->error = zlimdb_error_state;
     return -1;
   }
 #ifdef _WIN32
@@ -139,7 +139,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, unsigned short port)
 #endif
   if(zdb->socket == INVALID_SOCKET)
   {
-    zdb->error = zlimdb_socket_error;
+    zdb->error = zlimdb_error_socket;
     return -1;
   }
 
@@ -150,7 +150,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, unsigned short port)
   sin.sin_addr.s_addr = server ? inet_addr(server) : INADDR_LOOPBACK;
   if(sin.sin_addr.s_addr ==  INADDR_NONE)
   {
-    zdb->error = zlimdb_resolve_error;
+    zdb->error = zlimdb_error_resolve;
     CLOSE(zdb->socket);
     zdb->socket = INVALID_SOCKET;
     return -1;
@@ -158,7 +158,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, unsigned short port)
 
   if(connect(zdb->socket, (struct sockaddr*)&sin, sizeof(sin)) != 0)
   {
-    zdb->error = zlimdb_socket_error;
+    zdb->error = zlimdb_error_socket;
     CLOSE(zdb->socket);
     zdb->socket = INVALID_SOCKET;
     return -1;
@@ -167,7 +167,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, unsigned short port)
 #ifdef _WIN32
   if(WSAEventSelect(zdb->socket, zdb->hReadEvent, FD_READ| FD_CLOSE) == SOCKET_ERROR)
   {
-    zdb->error = zlimdb_socket_error;
+    zdb->error = zlimdb_error_socket;
     CLOSE(zdb->socket);
     zdb->socket = INVALID_SOCKET;
     return -1;
@@ -175,14 +175,14 @@ int zlimdb_connect(zlimdb* zdb, const char* server, unsigned short port)
 #endif
 
 
-  zdb->error = zlimdb_no_error;
+  zdb->error = zlimdb_error_none;
   return 0;
 }
 
 int zlimdb_errno(zlimdb* zdb)
 {
   if(!zdb)
-    return zlimdb_inval_error;
+    return zlimdb_error_inval;
   return zdb->error;
 }
 
@@ -199,7 +199,7 @@ int zlimdb_add(zlimdb* zdb, unsigned int tableId, void* data, unsigned short siz
     return -1;
   if(zdb->socket == INVALID_SOCKET)
   {
-    zdb->error = zlimdb_state_error;
+    zdb->error = zlimdb_error_state;
     return -1;
   }
 
@@ -216,7 +216,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     return -1;
   if(zdb->socket == INVALID_SOCKET)
   {
-    zdb->error = zlimdb_state_error;
+    zdb->error = zlimdb_error_state;
     return -1;
   }
 
@@ -229,16 +229,17 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     case WAIT_OBJECT_0:
       break;
     case WAIT_OBJECT_0 + 1:
-      zdb->error = zlimdb_interrupted;
+      WSAResetEvent(zdb->hInterruptEvent);
+      zdb->error = zlimdb_error_interrupted;
       return -1;
     case WAIT_TIMEOUT:
-      zdb->error = zlimdb_timeout;
+      zdb->error = zlimdb_error_timeout;
       return -1;
     }
     WSANETWORKEVENTS events;
     if(WSAEnumNetworkEvents(zdb->socket, zdb->hReadEvent, &events) == SOCKET_ERROR)
     {
-      zdb->error = zlimdb_socket_error;
+      zdb->error = zlimdb_error_socket;
       return -1;
     }
     //recv(zdb->socket, zdb->receiveBuffer, )
@@ -258,7 +259,7 @@ int zlimdb_interrupt(zlimdb* zdb)
 #ifdef _WIN32
   if(!WSASetEvent(zdb->hInterruptEvent))
   {
-    zdb->error = zlimdb_socket_error;
+    zdb->error = zlimdb_error_socket;
     return -1;
   }
 #else

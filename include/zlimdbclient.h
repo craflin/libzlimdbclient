@@ -10,13 +10,13 @@ typedef void (*zlimdb_callback)(void* user_data, void* data, unsigned short size
 
 typedef enum
 {
-  zlimdb_no_error,
-  zlimdb_inval_error,
-  zlimdb_state_error,
-  zlimdb_socket_error,
-  zlimdb_resolve_error,
-  zlimdb_interrupted,
-  zlimdb_timeout,
+  zlimdb_error_none,
+  zlimdb_error_inval,
+  zlimdb_error_state,
+  zlimdb_error_socket,
+  zlimdb_error_resolve,
+  zlimdb_error_interrupted,
+  zlimdb_error_timeout,
 } zlimdb_error;
 
 int zlimdb_init();
