@@ -53,7 +53,7 @@ typedef enum
 {
   zlimdb_header_flag_fragmented = 0x01,
   zlimdb_header_flag_compressed = 0x02,
-} zlimdb_header_flags;
+} zlimdb_header_flag;
 
 typedef enum
 {
@@ -123,12 +123,7 @@ typedef struct
   uint64_t param;
 } zlimdb_subscribe_request;
 
-typedef struct
-{
-  uint8_t type;
-  uint32_t table_id;
-  uint64_t param;
-} zlimdb_query_request;
+typedef zlimdb_subscribe_request zlimdb_query_request;
 
 typedef struct
 {
