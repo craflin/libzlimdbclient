@@ -66,22 +66,22 @@ typedef enum
 #pragma pack(push, 1)
 typedef struct
 {
-  uint8_t flags;
-  uint32_t size:24; // including header
-  uint16_t message_type; // MessageType
-  uint32_t request_id;
+  uint8_t flags; ///< @see zlimdb_header_flag
+  uint32_t size:24; ///< The size of the message including the header.
+  uint16_t message_type; ///< @see zlimdb_message_type
+  uint32_t request_id; ///< An identifier that can be chosen by the client. The response will query the same identifier.
 } zlimdb_header;
 
 typedef struct
 {
   zlimdb_header header;
-  uint16_t error;
+  uint16_t error; ///< @see zlimdb_message_error
 } zlimdb_error_response;
 
 typedef struct
 {
   zlimdb_header header;
-  uint16_t user_name_size;
+  uint16_t user_name_size; ///< The length of the user name.
 } zlimdb_login_request;
 
 typedef struct
@@ -118,12 +118,12 @@ typedef struct
 typedef struct
 {
   zlimdb_header header;
-  uint8_t type;
+  uint8_t type; ///< @see zlimdb_query_type
   uint32_t table_id;
   uint64_t param;
-} zlimdb_subscribe_request;
+} zlimdb_query_request;
 
-typedef zlimdb_subscribe_request zlimdb_query_request;
+typedef zlimdb_query_request zlimdb_subscribe_request;
 
 typedef struct
 {
@@ -141,7 +141,7 @@ typedef struct
 typedef struct
 {
   zlimdb_entity entity;
-  uint8_t flags; // e.g. PUBLIC,
+  uint8_t flags; // todo: flags like "private", "public"...
   uint16_t name_size;
 } zlimdb_table_entity;
 
