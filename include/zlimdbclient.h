@@ -11,7 +11,6 @@ typedef void (*zlimdb_callback)(void* user_data, void* data, unsigned short size
 typedef enum
 {
   zlimdb_error_none,
-  zlimdb_error_invalid_parameter,
   zlimdb_error_state,
   zlimdb_error_socket,
   zlimdb_error_resolve,
@@ -28,7 +27,7 @@ zlimdb* zlimdb_create(zlimdb_callback callback, void* user_data);
 int zlimdb_free(zlimdb* zdb);
 
 int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* user_name, const char* password);
-int zlimdb_errno(zlimdb* zdb);
+int zlimdb_errno();
 
 int zlimdb_add(zlimdb* zdb, uint32_t table_id, void* data, uint16_t size);
 
