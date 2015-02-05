@@ -10,5 +10,6 @@ libzlimdbclient = cStaticLibrary + {
   if tool == "vcxproj" {
     libs += { "ws2_32" }
     linkFlags += { "/SUBSYSTEM:CONSOLE" }
+    defines += { "_WINSOCK_DEPRECATED_NO_WARNINGS" }
   }
 }

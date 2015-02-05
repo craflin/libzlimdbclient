@@ -70,54 +70,54 @@ typedef struct
   uint32_t size:24; // including header
   uint16_t message_type; // MessageType
   uint32_t request_id;
-} zlimdb_message_header;
+} zlimdb_header;
 
 typedef struct
 {
-  zlimdb_message_header header;
+  zlimdb_header header;
   uint16_t error;
 } zlimdb_error_response;
 
 typedef struct
 {
-  zlimdb_message_header header;
+  zlimdb_header header;
   uint16_t user_name_size;
 } zlimdb_login_request;
 
 typedef struct
 {
-  zlimdb_message_header header;
+  zlimdb_header header;
   uint8_t pw_salt[32];
   uint8_t auth_salt[32];
 } zlimdb_login_response;
 
 typedef struct
 {
-  zlimdb_message_header header;
+  zlimdb_header header;
   uint8_t signature[32];
 } zlimdb_auth_request;
 
 typedef struct
 {
-  zlimdb_message_header header;
+  zlimdb_header header;
   uint32_t table_id;
 } zlimdb_add_request;
 
 typedef struct
 {
-  zlimdb_message_header header;
+  zlimdb_header header;
   uint32_t table_id;
 } zlimdb_update_request;
 
 typedef struct
 {
-  zlimdb_message_header header;
+  zlimdb_header header;
   uint32_t table_id;
 } zlimdb_remove_request;
 
 typedef struct
 {
-  zlimdb_message_header header;
+  zlimdb_header header;
   uint8_t type;
   uint32_t table_id;
   uint64_t param;
@@ -127,7 +127,7 @@ typedef zlimdb_subscribe_request zlimdb_query_request;
 
 typedef struct
 {
-  zlimdb_message_header header;
+  zlimdb_header header;
   uint32_t table_id;
 } zlimdb_unsubscribe_request;
 
