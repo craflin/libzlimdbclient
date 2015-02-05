@@ -41,9 +41,9 @@ struct _zlimdb
 };
 
 #ifdef _MSC_VER
-static int __declspec(thread) zlimdbErrno;
+static int __declspec(thread) zlimdbErrno = zlimdb_error_none;
 #else
-static int __thread zlimdbErrno;
+static int __thread zlimdbErrno = zlimdb_error_none;
 #endif
 
 static volatile long zlimdbInitCalls = 0;
