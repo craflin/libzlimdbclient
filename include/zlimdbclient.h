@@ -29,7 +29,9 @@ int zlimdb_free(zlimdb* zdb);
 int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* user_name, const char* password);
 int zlimdb_errno();
 
-int zlimdb_add(zlimdb* zdb, uint32_t table_id, void* data, uint16_t size);
+int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint16_t size);
+int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
+int zlimdb_query_get_response(zlimdb* zdb, void* data, uint16_t size);
 
 int zlimdb_exec(zlimdb* zdb, uint32_t timeout);
 int zlimdb_interrupt(zlimdb* zdb);

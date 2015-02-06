@@ -243,7 +243,7 @@ int zlimdb_errno(zlimdb* zdb)
   return zlimdbErrno;
 }
 
-int zlimdb_add(zlimdb* zdb, uint32_t tableId, void* data, uint16_t size)
+int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint16_t size)
 {
   if(!zdb)
     return -1;
@@ -255,15 +255,64 @@ int zlimdb_add(zlimdb* zdb, uint32_t tableId, void* data, uint16_t size)
 
   // create message
   zlimdb_add_request* addRequest = _alloca(sizeof(zlimdb_add_request) + size);
-  addRequest->header.message_type = zlimdb_message_auth_request;
+  addRequest->header.message_type = zlimdb_message_add_request;
   addRequest->header.size = sizeof(zlimdb_add_request) + size;
-  addRequest->table_id = tableId;
+  addRequest->table_id = table_id;
   memcpy(addRequest + 1, data, size);
+
+  // send message
   if(!zlimdb_sendRequest(zdb, &addRequest->header))
     return -1;
+
+  // receive response
   zlimdb_header addResponse;
   if(!zlimdb_receiveResponseCallback(zdb, addRequest->header.request_id, &addResponse, sizeof(addResponse)))
     return -1;
+  zlimdbErrno = zlimdb_error_none;
+  return 0;
+}
+
+int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param)
+{
+  if(!zdb)
+    return -1;
+  if(zdb->socket == INVALID_SOCKET)
+  {
+    zlimdbErrno = zlimdb_error_state;
+    return -1;
+  }
+
+  // create message
+  zlimdb_query_request queryRequest;
+  queryRequest.header.message_type = zlimdb_message_query_request;
+  queryRequest.header.size = sizeof(queryRequest);
+  queryRequest.table_id = table_id;
+  queryRequest.type = type;
+  queryRequest.param = param;
+
+  // send message
+  if(!zlimdb_sendRequest(zdb, &queryRequest.header))
+    return -1;
+
+  // receive response
+  zlimdb_header queryResponse;
+  if(!zlimdb_receiveResponseCallback(zdb, queryRequest.header.request_id, &queryResponse, sizeof(queryResponse)))
+    return -1;
+  zlimdbErrno = zlimdb_error_none;
+  //zdb->state = zlimdb_expecting_response;
+  return 0;
+}
+
+int zlimdb_query_get_response(zlimdb* zdb, void* data, uint16_t size)
+{
+  if(!zdb)
+    return -1;
+  if(zdb->socket == INVALID_SOCKET)
+  {
+    zlimdbErrno = zlimdb_error_state;
+    return -1;
+  }
+  // ??
   zlimdbErrno = zlimdb_error_none;
   return 0;
 }

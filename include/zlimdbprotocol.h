@@ -118,8 +118,8 @@ typedef struct
 typedef struct
 {
   zlimdb_header header;
-  uint8_t type; ///< @see zlimdb_query_type
   uint32_t table_id;
+  uint8_t type; ///< @see zlimdb_query_type
   uint64_t param;
 } zlimdb_query_request;
 
