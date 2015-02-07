@@ -16,7 +16,8 @@ typedef enum
   zlimdb_error_resolve,
   zlimdb_error_interrupted,
   zlimdb_error_timeout,
-  zlimdb_error_invalid_response,
+  zlimdb_error_invalid_message,
+  zlimdb_error_buffer_size,
   zlimdb_error_connection_closed,
 } zlimdb_error;
 
