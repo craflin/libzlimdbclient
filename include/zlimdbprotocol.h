@@ -42,11 +42,11 @@ typedef enum
   zlimdb_error_invalid_request,
   zlimdb_error_invalid_login,
   zlimdb_error_table_already_exists,
-  zlimdb_error_could_not_open_file,
-  zlimdb_error_could_not_read_file,
-  zlimdb_error_could_not_write_file,
+  zlimdb_error_open_file,
+  zlimdb_error_read_file,
+  zlimdb_error_write_file,
   zlimdb_error_subscription_not_found,
-  zlimdb_error_invalid_data,
+  zlimdb_error_invalid_message_data,
 } zlimdb_message_error;
 
 typedef enum

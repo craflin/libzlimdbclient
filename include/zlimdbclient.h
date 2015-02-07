@@ -10,16 +10,16 @@ typedef void (*zlimdb_callback)(void* user_data, void* data, unsigned short size
 
 typedef enum
 {
-  zlimdb_error_none,
-  zlimdb_error_state,
-  zlimdb_error_socket,
-  zlimdb_error_resolve,
-  zlimdb_error_interrupted,
-  zlimdb_error_timeout,
-  zlimdb_error_invalid_message,
-  zlimdb_error_buffer_size,
-  zlimdb_error_connection_closed,
-} zlimdb_error;
+  zlimdb_local_error_none,
+  zlimdb_local_error_state,
+  zlimdb_local_error_socket,
+  zlimdb_local_error_resolve,
+  zlimdb_local_error_interrupted,
+  zlimdb_local_error_timeout,
+  zlimdb_local_error_invalid_message_size,
+  zlimdb_local_error_buffer_size,
+  zlimdb_local_error_connection_closed,
+} zlimdb_local_error;
 
 int zlimdb_init();
 int zlimdb_cleanup();
@@ -29,6 +29,7 @@ int zlimdb_free(zlimdb* zdb);
 
 int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* user_name, const char* password);
 int zlimdb_errno();
+const char* zlimdb_strerror(int errnum);
 
 int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint16_t size);
 int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
