@@ -294,7 +294,7 @@ const char* zlimdb_strerror(int errnum)
   }
 }
 
-int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint16_t size)
+int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint32_t size)
 {
   if(!zdb)
     return -1;
@@ -350,7 +350,7 @@ int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_
   return 0;
 }
 
-int zlimdb_query_get_response(zlimdb* zdb, void* data, uint16_t size)
+int zlimdb_query_get_response(zlimdb* zdb, void* data, uint32_t maxSize, uint32_t* size)
 {
   if(!zdb)
     return -1;
@@ -368,11 +368,12 @@ int zlimdb_query_get_response(zlimdb* zdb, void* data, uint16_t size)
   }
 
   // receive response
-  zlimdb_header queryResponse;
-  if(!zlimdb_receiveResponseOrMessage2(zdb, &queryResponse, data, size))
+  zlimdb_header header;
+  if(!zlimdb_receiveResponseOrMessage2(zdb, &header, data, maxSize))
     return -1;
-  if(!(queryResponse.flags & zlimdb_header_flag_fragmented))
+  if(!(header.flags & zlimdb_header_flag_fragmented))
     zdb->state = zlimdb_state_query_finished;
+  *size = header.size - sizeof(header);
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
@@ -415,14 +416,12 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     zlimdb_header header;
     if(zlimdb_receiveHeader(zdb, &header) != 0)
       return -1;
-    void* buffer = _alloca(header.size);
-    if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(header), header.size - sizeof(header)) != 0)
+    size_t bufferSize = header.size - sizeof(header);
+    void* buffer = _alloca(bufferSize);
+    if(zlimdb_receiveData(zdb, buffer, bufferSize) != 0)
       return -1;
     if(zdb->callback)
-    {
-      *(zlimdb_header*)buffer = header;
-      zdb->callback(zdb->userData, buffer, ((zlimdb_header*)buffer)->size);
-    }
+      zdb->callback(zdb->userData, header.message_type, buffer, bufferSize);
     currentTick = GetTickCount();
   }
 #else
@@ -551,14 +550,12 @@ int zlimdb_receiveResponseOrMessage(zlimdb* zdb, void* buffer, size_t size)
       zlimdb_receiveResponseData(zdb, header, (char*)buffer + sizeof(*header), size - sizeof(*header));
     else
     {
-      void* buffer = _alloca(header->size);
-      if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(*header), header->size - sizeof(*header)) != 0)
+      size_t bufferSize = header->size - sizeof(*header);
+      void* buffer = _alloca(bufferSize);
+      if(zlimdb_receiveData(zdb, buffer, bufferSize) != 0)
           return -1; 
       if(zdb->callback)
-      {
-        *(zlimdb_header*)buffer = *header;
-        zdb->callback(zdb->userData, buffer, header->size);
-      }
+        zdb->callback(zdb->userData, header->message_type, buffer, bufferSize);
     }
   }
 }
@@ -574,14 +571,12 @@ int zlimdb_receiveResponseOrMessage2(zlimdb* zdb, zlimdb_header* header, void* d
       return zlimdb_receiveResponseData(zdb, header, data, size);
     else
     {
-      void* buffer = _alloca(header->size);
-      if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(*header), header->size - sizeof(*header)) != 0)
+      size_t bufferSize = header->size - sizeof(*header);
+      void* buffer = _alloca(bufferSize);
+      if(zlimdb_receiveData(zdb, buffer, bufferSize) != 0)
           return -1; 
       if(zdb->callback)
-      {
-        *(zlimdb_header*)buffer = *header;
-        zdb->callback(zdb->userData, buffer, header->size);
-      }
+        zdb->callback(zdb->userData, header->message_type, buffer, bufferSize);
     }
   }
 }
