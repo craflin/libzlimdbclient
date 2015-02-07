@@ -27,10 +27,10 @@ typedef enum
   
 typedef enum
 {
-  zlimdb_tabe_clients,
-  zlimdb_tabe_tables,
-  zlimdb_tabe_time,
-} zlimdb_tabe_id;
+  zlimdb_table_clients,
+  zlimdb_table_tables,
+  zlimdb_table_time,
+} zlimdb_table_id;
 
 typedef enum
 {
