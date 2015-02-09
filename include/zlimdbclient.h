@@ -4,6 +4,10 @@
 
 #include "zlimdbprotocol.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _zlimdb zlimdb;
 
 typedef void (*zlimdb_callback)(void* user_data, zlimdb_message_type message_type, void* data, unsigned short size);
@@ -33,9 +37,14 @@ const char* zlimdb_strerror(int errnum);
 
 int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint32_t size);
 int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
-int zlimdb_query_get_response(zlimdb* zdb, void* data, uint32_t maxSize, uint32_t* size);
+int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
+int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t maxSize, uint32_t* size);
 
 int zlimdb_exec(zlimdb* zdb, uint32_t timeout);
 int zlimdb_interrupt(zlimdb* zdb);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZLIMDB_CLIENT_H */

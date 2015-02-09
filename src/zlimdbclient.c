@@ -31,10 +31,8 @@ typedef enum
 {
   zlimdb_state_disconnected,
   zlimdb_state_connected,
-  zlimdb_state_query,
-  zlimdb_state_query_finished,
-  zlimdb_state_subscribe,
-  zlimdb_state_subscribe_finshed,
+  zlimdb_state_receiving_response,
+  zlimdb_state_received_response,
   zlimdb_state_error,
 } zlimdb_state;
 
@@ -345,20 +343,20 @@ int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_
   if(!zlimdb_sendRequest(zdb, &queryRequest.header))
     return -1;
 
-  zdb->state = zlimdb_state_query;
+  zdb->state = zlimdb_state_receiving_response;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
 
-int zlimdb_query_get_response(zlimdb* zdb, void* data, uint32_t maxSize, uint32_t* size)
+int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t maxSize, uint32_t* size)
 {
   if(!zdb)
     return -1;
   switch(zdb->state)
   {
-  case zlimdb_state_query:
+  case zlimdb_state_receiving_response:
     break;
-  case zlimdb_state_query_finished:
+  case zlimdb_state_received_response:
     zdb->state = zlimdb_state_connected;
     zlimdbErrno = zlimdb_local_error_none;
     return -1;
@@ -372,8 +370,35 @@ int zlimdb_query_get_response(zlimdb* zdb, void* data, uint32_t maxSize, uint32_
   if(!zlimdb_receiveResponseOrMessage2(zdb, &header, data, maxSize))
     return -1;
   if(!(header.flags & zlimdb_header_flag_fragmented))
-    zdb->state = zlimdb_state_query_finished;
+    zdb->state = zlimdb_state_received_response;
   *size = header.size - sizeof(header);
+  zlimdbErrno = zlimdb_local_error_none;
+  return 0;
+}
+
+int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param)
+{
+  if(!zdb)
+    return -1;
+  if(zdb->state != zlimdb_state_connected)
+  {
+    zlimdbErrno = zlimdb_local_error_state;
+    return -1;
+  }
+
+  // create message
+  zlimdb_query_request subscribeRequest;
+  subscribeRequest.header.message_type = zlimdb_message_subscribe_request;
+  subscribeRequest.header.size = sizeof(subscribeRequest);
+  subscribeRequest.table_id = table_id;
+  subscribeRequest.type = type;
+  subscribeRequest.param = param;
+
+  // send message
+  if(!zlimdb_sendRequest(zdb, &subscribeRequest.header))
+    return -1;
+
+  zdb->state = zlimdb_state_receiving_response;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }

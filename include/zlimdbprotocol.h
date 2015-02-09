@@ -4,6 +4,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum
 {
   zlimdb_message_error_response,
@@ -146,5 +150,9 @@ typedef struct
 } zlimdb_table_entity;
 
 #pragma pack(pop)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif _ZLIMDB_PROTOCOL_H
