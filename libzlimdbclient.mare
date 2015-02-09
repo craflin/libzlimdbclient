@@ -1,7 +1,7 @@
 
 libzlimdbclient = cStaticLibrary + {
   root = { "$(mareDir)/src", "$(mareDir)/include" }
-  includePaths = { "$(mareDir)/include" }
+  includePaths = { "$(mareDir)/include", "$(mareDir)/../lz4" }
   files = {
     "$(mareDir)/src/*.c" = cSource
     "$(mareDir)/src/*.h"

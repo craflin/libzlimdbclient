@@ -1,13 +1,14 @@
 
-#include "zlimdbclient.h"
-#include "sha256.h"
-
 #ifdef _WIN32
 #include <winsock2.h>
 #else
 // todo
 #endif
 #include <assert.h>
+#include <lz4.h>
+
+#include "zlimdbclient.h"
+#include "sha256.h"
 
 #define ZLIMDB_DEFAULT_PORT 13211
 
@@ -61,9 +62,9 @@ static volatile long zlimdbInitCalls = 0;
 int zlimdb_sendRequest(zlimdb* zdb, zlimdb_header* header);
 int zlimdb_receiveHeader(zlimdb* zdb, zlimdb_header* header);
 int zlimdb_receiveData(zlimdb* zdb, void* data, size_t size);
+int zlimdb_receiveResponseData(zlimdb* zdb, const zlimdb_header* header, void* data, size_t size);
 int zlimdb_receiveResponse(zlimdb* zdb, void* buffer, size_t size);
 int zlimdb_receiveResponseOrMessage(zlimdb* zdb, void* buffer, size_t size);
-int zlimdb_receiveResponseOrMessage2(zlimdb* zdb, zlimdb_header* header, void* data, size_t size);
 
 int zlimdb_init()
 {
@@ -348,34 +349,6 @@ int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_
   return 0;
 }
 
-int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t maxSize, uint32_t* size)
-{
-  if(!zdb)
-    return -1;
-  switch(zdb->state)
-  {
-  case zlimdb_state_receiving_response:
-    break;
-  case zlimdb_state_received_response:
-    zdb->state = zlimdb_state_connected;
-    zlimdbErrno = zlimdb_local_error_none;
-    return -1;
-  default:
-    zlimdbErrno = zlimdb_local_error_state;
-    return -1;
-  }
-
-  // receive response
-  zlimdb_header header;
-  if(!zlimdb_receiveResponseOrMessage2(zdb, &header, data, maxSize))
-    return -1;
-  if(!(header.flags & zlimdb_header_flag_fragmented))
-    zdb->state = zlimdb_state_received_response;
-  *size = header.size - sizeof(header);
-  zlimdbErrno = zlimdb_local_error_none;
-  return 0;
-}
-
 int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param)
 {
   if(!zdb)
@@ -401,6 +374,86 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uin
   zdb->state = zlimdb_state_receiving_response;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
+}
+
+
+int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t maxSize2, uint32_t* size2)
+{
+  if(!zdb)
+    return -1;
+  switch(zdb->state)
+  {
+  case zlimdb_state_receiving_response:
+    break;
+  case zlimdb_state_received_response:
+    zdb->state = zlimdb_state_connected;
+    zlimdbErrno = zlimdb_local_error_none;
+    return -1;
+  default:
+    zlimdbErrno = zlimdb_local_error_state;
+    return -1;
+  }
+
+  // receive response
+  zlimdb_header header;
+  for(;;)
+  {
+    if(zlimdb_receiveHeader(zdb, &header) != 0)
+      return -1;
+    if(header.request_id == 1)
+    {
+      if(header.flags & zlimdb_header_flag_compressed)
+      {
+        size_t dataSize = header.size - sizeof(header);
+        if(dataSize < sizeof(uint16_t))
+        {
+          zdb->state = zlimdb_state_error;
+          zlimdbErrno = zlimdb_local_error_invalid_message_data;
+          return -1;
+        }
+        void* buffer = _alloca(dataSize);
+        if(zlimdb_receiveResponseData(zdb, &header, buffer, dataSize) != 0)
+            return -1;
+        uint16_t rawDataSize = *(const uint16_t*)buffer;
+        if(rawDataSize > 0)
+        {
+          if(rawDataSize > maxSize2)
+          {
+            zdb->state = zlimdb_state_error;
+            zlimdbErrno = zlimdb_local_error_buffer_size;
+            return -1;
+          }
+          if(LZ4_decompress_safe((char*)buffer + sizeof(uint16_t), (char*)data, dataSize - sizeof(uint16_t), rawDataSize) != rawDataSize)
+          {
+            zdb->state = zlimdb_state_error;
+            zlimdbErrno = zlimdb_local_error_invalid_message_data;
+            return -1;
+          }
+        }
+        *size2 = rawDataSize;
+      }
+      else
+      {
+        assert(!(header.flags & zlimdb_header_flag_compressed));
+        if(zlimdb_receiveResponseData(zdb, &header, data, maxSize2) != 0)
+          return -1;
+        *size2 = header.size - sizeof(header);
+      }
+      if(!(header.flags & zlimdb_header_flag_fragmented))
+        zdb->state = zlimdb_state_received_response;
+      zlimdbErrno = zlimdb_local_error_none;
+      return 0;
+    }
+    else
+    {
+      size_t bufferSize = header.size - sizeof(header);
+      void* buffer = _alloca(bufferSize);
+      if(zlimdb_receiveData(zdb, buffer, bufferSize) != 0)
+          return -1; 
+      if(zdb->callback)
+        zdb->callback(zdb->userData, header.message_type, buffer, bufferSize);
+    }
+  }
 }
 
 int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
@@ -441,6 +494,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     zlimdb_header header;
     if(zlimdb_receiveHeader(zdb, &header) != 0)
       return -1;
+    assert(!(header.flags & zlimdb_header_flag_compressed));
     size_t bufferSize = header.size - sizeof(header);
     void* buffer = _alloca(bufferSize);
     if(zlimdb_receiveData(zdb, buffer, bufferSize) != 0)
@@ -573,27 +627,6 @@ int zlimdb_receiveResponseOrMessage(zlimdb* zdb, void* buffer, size_t size)
       return -1;
     if(header->request_id == 1)
       zlimdb_receiveResponseData(zdb, header, (char*)buffer + sizeof(*header), size - sizeof(*header));
-    else
-    {
-      size_t bufferSize = header->size - sizeof(*header);
-      void* buffer = _alloca(bufferSize);
-      if(zlimdb_receiveData(zdb, buffer, bufferSize) != 0)
-          return -1; 
-      if(zdb->callback)
-        zdb->callback(zdb->userData, header->message_type, buffer, bufferSize);
-    }
-  }
-}
-
-int zlimdb_receiveResponseOrMessage2(zlimdb* zdb, zlimdb_header* header, void* data, size_t size)
-{
-  assert(size >= sizeof(zlimdb_header));
-  for(;;)
-  {
-    if(zlimdb_receiveHeader(zdb, header) != 0)
-      return -1;
-    if(header->request_id == 1)
-      return zlimdb_receiveResponseData(zdb, header, data, size);
     else
     {
       size_t bufferSize = header->size - sizeof(*header);
