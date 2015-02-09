@@ -134,7 +134,10 @@ zlimdb* zlimdb_create(zlimdb_callback callback, void* user_data)
 int zlimdb_free(zlimdb* zdb)
 {
   if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
+  }
   if(zdb->socket != INVALID_SOCKET)
     CLOSE(zdb->socket);
 #ifdef _WIN32
@@ -152,7 +155,10 @@ int zlimdb_free(zlimdb* zdb)
 int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* user_name, const char* password)
 {
   if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
+  }
   if(zdb->state != zlimdb_state_disconnected)
   {
     zlimdbErrno = zlimdb_local_error_state;
@@ -265,6 +271,7 @@ const char* zlimdb_strerror(int errnum)
   {
   // libzlimdbclient errors
   case zlimdb_local_error_none: return "Success";
+  case zlimdb_local_error_invalid_parameter: return "Invalid parameter";
   case zlimdb_local_error_state: return "State error";
   case zlimdb_local_error_socket: return "Socket error";
   case zlimdb_local_error_resolve: return "Hostname could not be resolved";
@@ -296,7 +303,10 @@ const char* zlimdb_strerror(int errnum)
 int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint32_t size)
 {
   if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
+  }
   if(zdb->state != zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
@@ -325,7 +335,10 @@ int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint32_t size)
 int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param)
 {
   if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
+  }
   if(zdb->state != zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
@@ -352,7 +365,10 @@ int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_
 int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param)
 {
   if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
+  }
   if(zdb->state != zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
@@ -380,7 +396,10 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uin
 int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t maxSize2, uint32_t* size2)
 {
   if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
+  }
   switch(zdb->state)
   {
   case zlimdb_state_receiving_response:
@@ -459,7 +478,10 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t maxSize2, uint32_t* si
 int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
 {
   if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
+  }
   if(zdb->state != zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
@@ -511,7 +533,10 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
 int zlimdb_interrupt(zlimdb* zdb)
 {
   if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
+  }
 #ifdef _WIN32
   if(!WSASetEvent(zdb->hInterruptEvent))
   {

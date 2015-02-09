@@ -15,6 +15,7 @@ typedef void (*zlimdb_callback)(void* user_data, zlimdb_message_type message_typ
 typedef enum
 {
   zlimdb_local_error_none,
+  zlimdb_local_error_invalid_parameter,
   zlimdb_local_error_state,
   zlimdb_local_error_socket,
   zlimdb_local_error_resolve,
