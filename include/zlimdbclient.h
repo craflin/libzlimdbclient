@@ -16,6 +16,8 @@ typedef enum
 {
   zlimdb_local_error_none,
   zlimdb_local_error_invalid_parameter,
+  zlimdb_local_error_not_initialized,
+  zlimdb_local_error_out_of_memory,
   zlimdb_local_error_state,
   zlimdb_local_error_socket,
   zlimdb_local_error_resolve,
