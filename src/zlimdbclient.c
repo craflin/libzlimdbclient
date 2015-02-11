@@ -506,6 +506,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
   {
     if(WSAEventSelect(zdb->socket, zdb->hReadEvent, FD_READ| FD_CLOSE) == SOCKET_ERROR)
     {
+      zdb->state = zlimdb_state_error;
       zlimdbErrno = zlimdb_local_error_socket;
       int err = ERRNO;
       CLOSE(zdb->socket);
@@ -536,6 +537,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     WSANETWORKEVENTS events;
     if(WSAEnumNetworkEvents(zdb->socket, zdb->hReadEvent, &events) == SOCKET_ERROR)
     {
+      zdb->state = zlimdb_state_error;
       zlimdbErrno = zlimdb_local_error_socket;
       return -1;
     }
@@ -581,9 +583,12 @@ int zlimdb_sendRequest(zlimdb* zdb, zlimdb_header* header)
 {
   header->flags = 0;
   header->request_id = 1;
+  assert(header->size >= sizeof(*header));
+  unsigned int sentSize = 0;
   for(;;)
   {
-    if(send(zdb->socket, (const char*)header, header->size, 0) != header->size)
+    int res = send(zdb->socket, (const char*)header + sentSize, header->size - sentSize, 0);
+    if(res < 0)
     {
 #ifdef _WIN32
       if(ERRNO == WSAEWOULDBLOCK)
@@ -600,11 +605,12 @@ int zlimdb_sendRequest(zlimdb* zdb, zlimdb_header* header)
         continue;
       }
 #endif
+      zdb->state = zlimdb_state_error;
       zlimdbErrno = zlimdb_local_error_socket;
       return -1;
     }
     return 0;
-  }
+  } while(sentSize < header->size);
 }
 
 int zlimdb_receiveHeader(zlimdb* zdb, zlimdb_header* header)
@@ -711,7 +717,7 @@ int zlimdb_receiveResponseOrMessage(zlimdb* zdb, void* buffer, size_t size)
     if(zlimdb_receiveHeader(zdb, header) != 0)
       return -1;
     if(header->request_id == 1)
-      zlimdb_receiveResponseData(zdb, header, (char*)buffer + sizeof(*header), size - sizeof(*header));
+      return zlimdb_receiveResponseData(zdb, header, (char*)buffer + sizeof(*header), size - sizeof(*header));
     else
     {
       size_t bufferSize = header->size - sizeof(*header);
