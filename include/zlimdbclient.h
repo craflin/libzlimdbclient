@@ -10,7 +10,7 @@ extern "C" {
 
 typedef struct _zlimdb zlimdb;
 
-typedef void (*zlimdb_callback)(void* user_data, zlimdb_message_type message_type, void* data, unsigned short size);
+typedef void (*zlimdb_callback)(void* user_data, void* data, unsigned short size);
 
 typedef enum
 {

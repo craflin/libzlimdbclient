@@ -478,12 +478,15 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t maxSize2, uint32_t* si
     }
     else
     {
-      size_t bufferSize = header.size - sizeof(header);
+      size_t bufferSize = header.size;
       void* buffer = _alloca(bufferSize);
-      if(zlimdb_receiveData(zdb, buffer, bufferSize) != 0)
+      if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(header), bufferSize - sizeof(header)) != 0)
           return -1; 
       if(zdb->callback)
-        zdb->callback(zdb->userData, header.message_type, buffer, bufferSize);
+      {
+        *(zlimdb_header*)buffer = header;
+        zdb->callback(zdb->userData, buffer, bufferSize);
+      }
     }
   }
 }
@@ -545,12 +548,15 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     if(zlimdb_receiveHeader(zdb, &header) != 0)
       return -1;
     assert(!(header.flags & zlimdb_header_flag_compressed));
-    size_t bufferSize = header.size - sizeof(header);
+    size_t bufferSize = header.size;
     void* buffer = _alloca(bufferSize);
-    if(zlimdb_receiveData(zdb, buffer, bufferSize) != 0)
+    if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(header), bufferSize - sizeof(header)) != 0)
       return -1;
     if(zdb->callback)
-      zdb->callback(zdb->userData, header.message_type, buffer, bufferSize);
+    {
+      *(zlimdb_header*)buffer = header;
+      zdb->callback(zdb->userData, buffer, bufferSize);
+    }
     currentTick = GetTickCount();
   } while(zdb->state == zlimdb_state_connected);
 #else
@@ -720,12 +726,15 @@ int zlimdb_receiveResponseOrMessage(zlimdb* zdb, void* buffer, size_t size)
       return zlimdb_receiveResponseData(zdb, header, (char*)buffer + sizeof(*header), size - sizeof(*header));
     else
     {
-      size_t bufferSize = header->size - sizeof(*header);
+      size_t bufferSize = header->size;
       void* buffer = _alloca(bufferSize);
-      if(zlimdb_receiveData(zdb, buffer, bufferSize) != 0)
+      if(zlimdb_receiveData(zdb, (char*)buffer +  sizeof(*header), bufferSize - sizeof(*header)) != 0)
           return -1; 
       if(zdb->callback)
-        zdb->callback(zdb->userData, header->message_type, buffer, bufferSize);
+      {
+        *(zlimdb_header*)buffer = *header;
+        zdb->callback(zdb->userData, buffer, bufferSize);
+      }
     }
   }
 }
