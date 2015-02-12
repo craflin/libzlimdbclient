@@ -39,6 +39,8 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
 int zlimdb_errno();
 const char* zlimdb_strerror(int errnum);
 
+int zlimdb_add_table(zlimdb* zdb, const char* name, uint64_t* table_id);
+
 int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint32_t size);
 int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
 int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);

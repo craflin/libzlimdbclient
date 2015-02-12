@@ -312,6 +312,47 @@ const char* zlimdb_strerror(int errnum)
   }
 }
 
+int zlimdb_add_table(zlimdb* zdb, const char* name, uint64_t* table_id)
+{
+  if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
+    return -1;
+  }
+  if(zdb->state != zlimdb_state_connected)
+  {
+    zlimdbErrno = zlimdb_local_error_state;
+    return -1;
+  }
+
+  // create message
+  size_t nameLen = strlen(name);
+  zlimdb_add_request* addRequest = _alloca(sizeof(zlimdb_add_request) + sizeof(zlimdb_table_entity) + nameLen);
+  addRequest->header.message_type = zlimdb_message_add_request;
+  addRequest->header.size = sizeof(zlimdb_add_request) + sizeof(zlimdb_table_entity) + nameLen;
+  addRequest->table_id = zlimdb_table_tables;
+  zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(addRequest + 1);
+  tableEntity->entity.id = 0;
+  tableEntity->entity.time = 0;
+  tableEntity->entity.size = sizeof(zlimdb_table_entity) + nameLen;
+  tableEntity->name_size = nameLen;
+  tableEntity->flags = 0;
+  memcpy(tableEntity + 1, name, nameLen);
+
+  // send message
+  if(zlimdb_sendRequest(zdb, &addRequest->header) != 0)
+    return -1;
+
+  // receive response
+  zlimdb_add_response addResponse;
+  if(zlimdb_receiveResponseOrMessage(zdb, &addResponse, sizeof(addResponse)) != 0)
+    return -1;
+  if(table_id)
+    *table_id = addResponse.id;
+  zlimdbErrno = zlimdb_local_error_none;
+  return 0;
+}
+
 int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint32_t size)
 {
   if(!zdb)
@@ -337,7 +378,7 @@ int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint32_t size)
     return -1;
 
   // receive response
-  zlimdb_header addResponse;
+  zlimdb_add_response addResponse;
   if(zlimdb_receiveResponseOrMessage(zdb, &addResponse, sizeof(addResponse)) != 0)
     return -1;
   zlimdbErrno = zlimdb_local_error_none;
