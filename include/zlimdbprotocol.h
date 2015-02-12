@@ -45,7 +45,6 @@ typedef enum
   zlimdb_error_not_implemented,
   zlimdb_error_invalid_request,
   zlimdb_error_invalid_login,
-  zlimdb_error_table_already_exists,
   zlimdb_error_open_file,
   zlimdb_error_read_file,
   zlimdb_error_write_file,
@@ -106,6 +105,12 @@ typedef struct
   zlimdb_header header;
   uint32_t table_id;
 } zlimdb_add_request;
+
+typedef struct
+{
+  zlimdb_header header;
+  uint64_t id;
+} zlimdb_add_response;
 
 typedef struct
 {

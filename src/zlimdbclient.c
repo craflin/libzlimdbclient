@@ -302,7 +302,6 @@ const char* zlimdb_strerror(int errnum)
   case zlimdb_error_not_implemented: return "Operation not implemented";
   case zlimdb_error_invalid_request: return "Invalid request";
   case zlimdb_error_invalid_login: return "Invalid login data";
-  case zlimdb_error_table_already_exists: return "Table does already exist";
   case zlimdb_error_open_file: return "Could not open file";
   case zlimdb_error_read_file: return "Could not read from file";
   case zlimdb_error_write_file: return "Could not write to file";
