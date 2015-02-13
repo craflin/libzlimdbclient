@@ -35,7 +35,6 @@ typedef enum
 {
   zlimdb_table_clients,
   zlimdb_table_tables,
-  zlimdb_table_time,
 } zlimdb_table_id;
 
 typedef enum
