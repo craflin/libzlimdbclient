@@ -531,6 +531,41 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t maxSize2, uint32_t* si
   }
 }
 
+int zlimdb_sync(zlimdb* zdb, uint32_t table_id, int16_t* server_time, int16_t* table_time)
+{
+  if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
+    return -1;
+  }
+  if(zdb->state != zlimdb_state_connected)
+  {
+    zlimdbErrno = zlimdb_local_error_state;
+    return -1;
+  }
+
+  // create message
+  zlimdb_sync_request syncRequest;
+  syncRequest.header.message_type = zlimdb_message_sync_request;
+  syncRequest.header.size = sizeof(syncRequest);
+  syncRequest.table_id = table_id;
+
+  // send message
+  if(zlimdb_sendRequest(zdb, &syncRequest.header) != 0)
+    return -1;
+
+  // receive response
+  zlimdb_sync_response syncResponse;
+  if(zlimdb_receiveResponseOrMessage(zdb, &syncResponse, sizeof(syncResponse)) != 0)
+    return -1;
+  if(server_time)
+    *server_time = syncResponse.server_time;
+  if(table_time)
+    *table_time = syncResponse.table_time;
+  zlimdbErrno = zlimdb_local_error_none;
+  return 0;
+}
+
 int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
 {
   if(!zdb)
