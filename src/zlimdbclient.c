@@ -531,7 +531,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t maxSize2, uint32_t* si
   }
 }
 
-int zlimdb_sync(zlimdb* zdb, uint32_t table_id, int16_t* server_time, int16_t* table_time)
+int zlimdb_sync(zlimdb* zdb, uint32_t table_id, int64_t* server_time, int64_t* table_time)
 {
   if(!zdb)
   {
