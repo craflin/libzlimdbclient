@@ -325,7 +325,7 @@ const char* zlimdb_strerror(int errnum)
   }
 }
 
-int zlimdb_add_table(zlimdb* zdb, const char* name, uint64_t* table_id)
+int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* table_id)
 {
   if(!zdb)
   {
@@ -361,7 +361,7 @@ int zlimdb_add_table(zlimdb* zdb, const char* name, uint64_t* table_id)
   if(zlimdb_receiveResponseOrMessage(zdb, &addResponse, sizeof(addResponse)) != 0)
     return -1;
   if(table_id)
-    *table_id = addResponse.id;
+    *table_id = (uint32_t)addResponse.id;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
