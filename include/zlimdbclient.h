@@ -36,6 +36,8 @@ zlimdb* zlimdb_create(zlimdb_callback callback, void* user_data);
 int zlimdb_free(zlimdb* zdb);
 
 int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* user_name, const char* password);
+int zlimdb_is_connected(zlimdb* zdb);
+
 int zlimdb_errno();
 const char* zlimdb_strerror(int errnum);
 

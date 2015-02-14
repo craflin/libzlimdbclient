@@ -271,6 +271,19 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
   return 0;
 }
 
+int zlimdb_is_connected(zlimdb* zdb)
+{
+  if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
+    return -1;
+  }
+  zlimdbErrno = zlimdb_local_error_none;
+  if(zdb->state != zlimdb_state_connected)
+    return -1;
+  return 0;
+}
+
 int zlimdb_errno(zlimdb* zdb)
 {
   return zlimdbErrno;
