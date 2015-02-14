@@ -366,7 +366,7 @@ int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* table_id)
   return 0;
 }
 
-int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint32_t size)
+int zlimdb_add(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data)
 {
   if(!zdb)
   {
@@ -380,11 +380,11 @@ int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint32_t size)
   }
 
   // create message
-  zlimdb_add_request* addRequest = _alloca(sizeof(zlimdb_add_request) + size);
+  zlimdb_add_request* addRequest = _alloca(sizeof(zlimdb_add_request) + data->size);
   addRequest->header.message_type = zlimdb_message_add_request;
-  addRequest->header.size = sizeof(zlimdb_add_request) + size;
+  addRequest->header.size = sizeof(zlimdb_add_request) + data->size;
   addRequest->table_id = table_id;
-  memcpy(addRequest + 1, data, size);
+  memcpy(addRequest + 1, data, data->size);
 
   // send message
   if(zlimdb_sendRequest(zdb, &addRequest->header) != 0)
@@ -459,7 +459,7 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uin
 }
 
 
-int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t maxSize2, uint32_t* size2)
+int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t maxSize2, uint32_t* size2)
 {
   if(!zdb)
   {

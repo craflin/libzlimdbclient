@@ -43,10 +43,10 @@ const char* zlimdb_strerror(int errnum);
 
 int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* table_id);
 
-int zlimdb_add(zlimdb* zdb, uint32_t table_id, const void* data, uint32_t size);
+int zlimdb_add(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data);
 int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
 int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
-int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t maxSize, uint32_t* size);
+int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t maxSize, uint32_t* size);
 int zlimdb_sync(zlimdb* zdb, uint32_t table_id, int64_t* server_time, int64_t* table_time);
 
 int zlimdb_exec(zlimdb* zdb, uint32_t timeout);
