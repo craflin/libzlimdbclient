@@ -5,6 +5,7 @@
 // todo
 #endif
 #include <assert.h>
+#include <time.h>
 #include <lz4.h>
 
 #include "zlimdbclient.h"
@@ -360,6 +361,33 @@ int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* table_id)
   if(table_id)
     *table_id = (uint32_t)addResponse.id;
   zlimdbErrno = zlimdb_local_error_none;
+  return 0;
+}
+
+int zlimdb_add_user(zlimdb* zdb, const char* user_name, const char* password)
+{
+  // create user table
+  size_t userNameLen = strlen(user_name);
+  char* tableName = _alloca(13 + userNameLen);
+  memcpy(tableName, "users/", 6);
+  memcpy(tableName + 6, user_name, userNameLen);
+  memcpy(tableName + 6 + userNameLen, "/.user", 6);
+  tableName[12 + userNameLen] = '\0';
+  uint32_t tableId;
+  if(zlimdb_add_table(zdb, tableName, &tableId) != 0)
+    return -1;
+
+  // add user entity
+  zlimdb_user_entity userEntity;
+  userEntity.entity.id = 1;
+  userEntity.entity.time = 0;
+  userEntity.entity.size = sizeof(userEntity);
+  srand((unsigned int)time(0));
+  for(uint16_t* i = (uint16_t*)userEntity.pw_salt, * end = (uint16_t*)(userEntity.pw_salt + sizeof(userEntity.pw_salt)); i < end; ++i)
+    *i = rand();
+  sha256_hmac(userEntity.pw_salt, sizeof(userEntity.pw_salt), password, strlen(password), userEntity.pw_hash);
+  if(zlimdb_add(zdb, tableId, &userEntity.entity) != 0)
+    return -1;
   return 0;
 }
 
