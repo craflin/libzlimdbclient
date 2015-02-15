@@ -169,6 +169,13 @@ typedef struct
   uint16_t name_size;
 } zlimdb_table_entity;
 
+typedef struct
+{
+  zlimdb_entity entity;
+  uint8_t pw_salt[32];
+  uint8_t pw_hash[32];
+} zlimdb_user_entity;
+
 #pragma pack(pop)
 
 #ifdef __cplusplus
