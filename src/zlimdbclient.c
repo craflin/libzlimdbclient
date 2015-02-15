@@ -190,8 +190,8 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
   memset(&sin,0,sizeof(sin));
   sin.sin_family = AF_INET;
   sin.sin_port = htons(port ? port : ZLIMDB_DEFAULT_PORT);
-  sin.sin_addr.s_addr = server ? inet_addr(server) : INADDR_LOOPBACK;
-  if(sin.sin_addr.s_addr ==  INADDR_NONE)
+  sin.sin_addr.s_addr = server ? inet_addr(server) : htonl(INADDR_LOOPBACK);
+  if(ntohl(sin.sin_addr.s_addr) ==  INADDR_NONE)
   {
     zlimdbErrno = zlimdb_local_error_resolve;
     int err = ERRNO;
