@@ -519,7 +519,6 @@ int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t maxSize2, uin
       }
       else
       {
-        assert(!(header.flags & zlimdb_header_flag_compressed));
         if(zlimdb_receiveResponseData(zdb, &header, data, maxSize2) != 0)
           return -1;
         *size2 = header.size - sizeof(header);
@@ -632,18 +631,21 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
       zlimdbErrno = zlimdb_local_error_socket;
       return -1;
     }
-    zlimdb_header header;
-    if(zlimdb_receiveHeader(zdb, &header) != 0)
-      return -1;
-    assert(!(header.flags & zlimdb_header_flag_compressed));
-    size_t bufferSize = header.size;
-    void* buffer = _alloca(bufferSize);
-    if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(header), bufferSize - sizeof(header)) != 0)
-      return -1;
-    if(zdb->callback)
+    if(events.lNetworkEvents)
     {
-      *(zlimdb_header*)buffer = header;
-      zdb->callback(zdb->userData, buffer, bufferSize);
+      zlimdb_header header;
+      if(zlimdb_receiveHeader(zdb, &header) != 0)
+        return -1;
+      assert(!(header.flags & zlimdb_header_flag_compressed));
+      size_t bufferSize = header.size;
+      void* buffer = _alloca(bufferSize);
+      if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(header), bufferSize - sizeof(header)) != 0)
+        return -1;
+      if(zdb->callback)
+      {
+        *(zlimdb_header*)buffer = header;
+        zdb->callback(zdb->userData, buffer, bufferSize);
+      }
     }
     currentTick = GetTickCount();
   } while(zdb->state == zlimdb_state_connected);
