@@ -111,7 +111,7 @@ zlimdb* zlimdb_create(zlimdb_callback callback, void* user_data)
   zlimdb* zdb = malloc(sizeof(zlimdb));
   if(!zdb)
   {
-    zlimdbErrno = zlimdb_local_error_out_of_memory;
+    zlimdbErrno = zlimdb_local_error_system;
     return 0;
   }
   zdb->socket = INVALID_SOCKET;
@@ -182,7 +182,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
 #endif
   if(zdb->socket == INVALID_SOCKET)
   {
-    zlimdbErrno = zlimdb_local_error_socket;
+    zlimdbErrno = zlimdb_local_error_system;
     return -1;
   }
 
@@ -194,16 +194,14 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
   if(ntohl(sin.sin_addr.s_addr) ==  INADDR_NONE)
   {
     zlimdbErrno = zlimdb_local_error_resolve;
-    int err = ERRNO;
     CLOSE(zdb->socket);
-    SET_ERRNO(err);
     zdb->socket = INVALID_SOCKET;
     return -1;
   }
 
   if(connect(zdb->socket, (struct sockaddr*)&sin, sizeof(sin)) != 0)
   {
-    zlimdbErrno = zlimdb_local_error_socket;
+    zlimdbErrno = zlimdb_local_error_system;
     int err = ERRNO;
     CLOSE(zdb->socket);
     SET_ERRNO(err);
@@ -295,11 +293,10 @@ const char* zlimdb_strerror(int errnum)
   {
   // libzlimdbclient errors
   case zlimdb_local_error_none: return "Success";
+  case zlimdb_local_error_system: return "System error";
   case zlimdb_local_error_invalid_parameter: return "Invalid parameter";
   case zlimdb_local_error_not_initialized: return "Not initialized";
-  case zlimdb_local_error_out_of_memory: return "Out of memory";
   case zlimdb_local_error_state: return "State error";
-  case zlimdb_local_error_socket: return "Socket error";
   case zlimdb_local_error_resolve: return "Hostname could not be resolved";
   case zlimdb_local_error_interrupted: return "Operation was interruped";
   case zlimdb_local_error_timeout: return "Operation has timed out";
@@ -597,11 +594,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     if(WSAEventSelect(zdb->socket, zdb->hReadEvent, FD_READ| FD_CLOSE) == SOCKET_ERROR)
     {
       zdb->state = zlimdb_state_error;
-      zlimdbErrno = zlimdb_local_error_socket;
-      int err = ERRNO;
-      CLOSE(zdb->socket);
-      SET_ERRNO(err);
-      zdb->socket = INVALID_SOCKET;
+      zlimdbErrno = zlimdb_local_error_system;
       return -1;
     }
   }
@@ -628,7 +621,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     if(WSAEnumNetworkEvents(zdb->socket, zdb->hReadEvent, &events) == SOCKET_ERROR)
     {
       zdb->state = zlimdb_state_error;
-      zlimdbErrno = zlimdb_local_error_socket;
+      zlimdbErrno = zlimdb_local_error_system;
       return -1;
     }
     if(events.lNetworkEvents)
@@ -665,7 +658,7 @@ int zlimdb_interrupt(zlimdb* zdb)
 #ifdef _WIN32
   if(!WSASetEvent(zdb->hInterruptEvent))
   {
-    zlimdbErrno = zlimdb_local_error_socket;
+    zlimdbErrno = zlimdb_local_error_system;
     return -1;
   }
 #else
@@ -694,7 +687,7 @@ int zlimdb_sendRequest(zlimdb* zdb, zlimdb_header* header)
         if(ioctlsocket(zdb->socket, FIONBIO, &val) != 0)
         {
           zdb->state = zlimdb_state_error;
-          zlimdbErrno = zlimdb_local_error_socket;
+          zlimdbErrno = zlimdb_local_error_system;
           return -1;
         }
         zdb->selectedEvents = 0;
@@ -702,7 +695,7 @@ int zlimdb_sendRequest(zlimdb* zdb, zlimdb_header* header)
       }
 #endif
       zdb->state = zlimdb_state_error;
-      zlimdbErrno = zlimdb_local_error_socket;
+      zlimdbErrno = zlimdb_local_error_system;
       return -1;
     }
     return 0;
@@ -744,7 +737,7 @@ int zlimdb_receiveData(zlimdb* zdb, void* data, size_t size)
         if(ioctlsocket(zdb->socket, FIONBIO, &val) != 0)
         {
           zdb->state = zlimdb_state_error;
-          zlimdbErrno = zlimdb_local_error_socket;
+          zlimdbErrno = zlimdb_local_error_system;
           return -1;
         }
         zdb->selectedEvents = 0;
@@ -752,7 +745,7 @@ int zlimdb_receiveData(zlimdb* zdb, void* data, size_t size)
       }
 #endif
       zdb->state = zlimdb_state_error;
-      zlimdbErrno = zlimdb_local_error_socket;
+      zlimdbErrno = zlimdb_local_error_system;
       return -1;
     }
     receivedSize += res;
