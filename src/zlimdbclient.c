@@ -484,6 +484,14 @@ int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t maxSize2, uin
       return -1;
     if(header.request_id == 1)
     {
+      if(header.message_type == zlimdb_message_error_response)
+      {
+        zdb->state = zlimdb_state_connected;
+        if(zlimdb_receiveResponseData(zdb, &header, data, maxSize2) != 0)
+          return -1;
+        zlimdbErrno = zlimdb_local_error_none;
+        return -1;
+      }
       if(header.flags & zlimdb_header_flag_compressed)
       {
         size_t dataSize = header.size - sizeof(header);
