@@ -2,6 +2,7 @@
 #ifndef _ZLIMDB_PROTOCOL_H
 #define _ZLIMDB_PROTOCOL_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -182,4 +183,4 @@ typedef struct
 }
 #endif
 
-#endif _ZLIMDB_PROTOCOL_H
+#endif // _ZLIMDB_PROTOCOL_H
