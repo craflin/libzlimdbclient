@@ -5,6 +5,7 @@
 #ifndef _SHA256_H
 #define _SHA256_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define SHA256_BLOCK_SIZE 64

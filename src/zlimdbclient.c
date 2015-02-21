@@ -2,7 +2,15 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #else
-// todo
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/eventfd.h>
+#include <poll.h>
 #endif
 #include <assert.h>
 #include <time.h>
@@ -22,6 +30,7 @@
 #define CLOSE closesocket
 typedef int socklen_t;
 #define MSG_NOSIGNAL 0
+#define alloca(s) _alloca(s)
 #else
 typedef int SOCKET;
 #define INVALID_SOCKET (-1)
@@ -49,7 +58,7 @@ struct _zlimdb
   HANDLE hReadEvent;
   DWORD selectedEvents;
 #else
-  // todo int interruptFd;
+  int interruptEventFd;
 #endif
   zlimdb_callback callback;
   void* userData;
@@ -58,7 +67,7 @@ struct _zlimdb
 #ifdef _MSC_VER
 static int __declspec(thread) zlimdbErrno = zlimdb_local_error_none;
 #else
-static int __thread zlimdbErrno = zlimdb_error_none;
+static int __thread zlimdbErrno = zlimdb_local_error_none;
 #endif
 
 static volatile long zlimdbInitCalls = 0;
@@ -83,6 +92,8 @@ int zlimdb_init()
       return -1;
     }
   }
+#else
+  __sync_add_and_fetch(&zlimdbInitCalls, 1);
 #endif
   return 0;
 }
@@ -98,6 +109,8 @@ int zlimdb_cleanup()
       return -1;
     }
   }
+#else
+  __sync_add_and_fetch(&zlimdbInitCalls, -1);
 #endif
   return 0;
 }
@@ -127,10 +140,10 @@ zlimdb* zlimdb_create(zlimdb_callback callback, void* user_data)
   }
   zdb->selectedEvents = 0;
 #else
-  // todo zdb->eventfd = eventfd();
-  if(zdb->eventfd == 0)
+  zdb->interruptEventFd = eventfd(0, EFD_CLOEXEC);
+  if(zdb->interruptEventFd == INVALID_SOCKET)
   {
-    free(zdb);
+    zlimdb_free(zdb);
     return 0;
   }
 #endif
@@ -157,7 +170,8 @@ int zlimdb_free(zlimdb* zdb)
   if(zdb->hReadEvent != WSA_INVALID_EVENT)
     WSACloseEvent(zdb->hReadEvent);
 #else
-  // todo if(zdb->eventfd) close(zdb->eventfd);
+  if(zdb->interruptEventFd != INVALID_SOCKET)
+    CLOSE(zdb->interruptEventFd);
 #endif
   free(zdb);
   return 0;
@@ -188,7 +202,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
   }
 
   struct sockaddr_in sin;
-  memset(&sin,0,sizeof(sin));
+  memset(&sin, 0, sizeof(sin));
   sin.sin_family = AF_INET;
   sin.sin_port = htons(port ? port : ZLIMDB_DEFAULT_PORT);
   sin.sin_addr.s_addr = server ? inet_addr(server) : htonl(INADDR_LOOPBACK);
@@ -212,7 +226,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
 
   // send login request
   size_t usernameLen = strlen(user_name);
-  zlimdb_login_request* loginRequest = _alloca(sizeof(zlimdb_login_request) + usernameLen);
+  zlimdb_login_request* loginRequest = alloca(sizeof(zlimdb_login_request) + usernameLen);
   loginRequest->header.message_type = zlimdb_message_login_request;
   loginRequest->header.size = sizeof(zlimdb_login_request) + usernameLen;
   loginRequest->user_name_size = usernameLen;
@@ -316,7 +330,7 @@ const char* zlimdb_strerror(int errnum)
   case zlimdb_error_open_file: return "Could not open file";
   case zlimdb_error_read_file: return "Could not read from file";
   case zlimdb_error_write_file: return "Could not write to file";
-  case zlimdb_error_subscription_not_found: "Subscription not found";
+  case zlimdb_error_subscription_not_found: return "Subscription not found";
   case zlimdb_error_invalid_message_data: return "Invalid message data";
 
   default: return "Unknown error";
@@ -338,7 +352,7 @@ int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* table_id)
 
   // create message
   size_t nameLen = strlen(name);
-  zlimdb_add_request* addRequest = _alloca(sizeof(zlimdb_add_request) + sizeof(zlimdb_table_entity) + nameLen);
+  zlimdb_add_request* addRequest = alloca(sizeof(zlimdb_add_request) + sizeof(zlimdb_table_entity) + nameLen);
   addRequest->header.message_type = zlimdb_message_add_request;
   addRequest->header.size = sizeof(zlimdb_add_request) + sizeof(zlimdb_table_entity) + nameLen;
   addRequest->table_id = zlimdb_table_tables;
@@ -368,7 +382,7 @@ int zlimdb_add_user(zlimdb* zdb, const char* user_name, const char* password)
 {
   // create user table
   size_t userNameLen = strlen(user_name);
-  char* tableName = _alloca(13 + userNameLen);
+  char* tableName = alloca(13 + userNameLen);
   memcpy(tableName, "users/", 6);
   memcpy(tableName + 6, user_name, userNameLen);
   memcpy(tableName + 6 + userNameLen, "/.user", 6);
@@ -383,9 +397,10 @@ int zlimdb_add_user(zlimdb* zdb, const char* user_name, const char* password)
   userEntity.entity.time = 0;
   userEntity.entity.size = sizeof(userEntity);
   srand((unsigned int)time(0));
-  for(uint16_t* i = (uint16_t*)userEntity.pw_salt, * end = (uint16_t*)(userEntity.pw_salt + sizeof(userEntity.pw_salt)); i < end; ++i)
+  uint16_t* i = (uint16_t*)userEntity.pw_salt, * end = (uint16_t*)(userEntity.pw_salt + sizeof(userEntity.pw_salt));
+  for(; i < end; ++i)
     *i = rand();
-  sha256_hmac(userEntity.pw_salt, sizeof(userEntity.pw_salt), password, strlen(password), userEntity.pw_hash);
+  sha256_hmac(userEntity.pw_salt, sizeof(userEntity.pw_salt), (const uint8_t*)password, strlen(password), userEntity.pw_hash);
   if(zlimdb_add(zdb, tableId, &userEntity.entity) != 0)
     return -1;
   return 0;
@@ -405,7 +420,7 @@ int zlimdb_add(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data)
   }
 
   // create message
-  zlimdb_add_request* addRequest = _alloca(sizeof(zlimdb_add_request) + data->size);
+  zlimdb_add_request* addRequest = alloca(sizeof(zlimdb_add_request) + data->size);
   addRequest->header.message_type = zlimdb_message_add_request;
   addRequest->header.size = sizeof(zlimdb_add_request) + data->size;
   addRequest->table_id = table_id;
@@ -529,7 +544,7 @@ int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t maxSize2, uin
           zlimdbErrno = zlimdb_local_error_invalid_message_data;
           return -1;
         }
-        void* buffer = _alloca(dataSize);
+        void* buffer = alloca(dataSize);
         if(zlimdb_receiveResponseData(zdb, &header, buffer, dataSize) != 0)
             return -1;
         uint16_t rawDataSize = *(const uint16_t*)buffer;
@@ -564,7 +579,7 @@ int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t maxSize2, uin
     else
     {
       size_t bufferSize = header.size;
-      void* buffer = _alloca(bufferSize);
+      void* buffer = alloca(bufferSize);
       if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(header), bufferSize - sizeof(header)) != 0)
           return -1; 
       if(zdb->callback)
@@ -667,7 +682,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
         return -1;
       assert(!(header.flags & zlimdb_header_flag_compressed));
       size_t bufferSize = header.size;
-      void* buffer = _alloca(bufferSize);
+      void* buffer = alloca(bufferSize);
       if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(header), bufferSize - sizeof(header)) != 0)
         return -1;
       if(zdb->callback)
@@ -679,7 +694,60 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     currentTick = GetTickCount();
   } while(zdb->state == zlimdb_state_connected);
 #else
-  // todo
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  int64_t currentTick = (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+  int64_t startTick = currentTick;
+  do
+  {
+    int64_t passedTicks = currentTick - startTick;
+    struct pollfd fds[] = {
+      { zdb->socket, POLLIN /*| POLLRDHUP*/ | POLLHUP, 0},
+      { zdb->interruptEventFd, POLLIN /*| POLLRDHUP*/ | POLLHUP, 0}
+    };
+    int ret = passedTicks <= timeout ? poll(fds, 2, timeout - passedTicks) : 0;
+    if(ret < 0)
+    {
+      zdb->state = zlimdb_state_error;
+      zlimdbErrno = zlimdb_local_error_system;
+      return -1;
+    }
+    if(fds[0].revents)
+    {
+      zlimdb_header header;
+      if(zlimdb_receiveHeader(zdb, &header) != 0)
+        return -1;
+      assert(!(header.flags & zlimdb_header_flag_compressed));
+      size_t bufferSize = header.size;
+      void* buffer = alloca(bufferSize);
+      if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(header), bufferSize - sizeof(header)) != 0)
+        return -1;
+      if(zdb->callback)
+      {
+        *(zlimdb_header*)buffer = header;
+        zdb->callback(zdb->userData, buffer, bufferSize);
+      }
+    }
+    if(fds[1].revents)
+    {
+      uint64_t val;
+      if(read(zdb->interruptEventFd, &val, sizeof(val)) == -1)
+      {
+        zdb->state = zlimdb_state_error;
+        zlimdbErrno = zlimdb_local_error_system;
+        return -1;
+      }
+      zlimdbErrno = zlimdb_local_error_interrupted;
+      return -1;
+    }
+    if(ret == 0)
+    {
+      zlimdbErrno = zlimdb_local_error_timeout;
+      return -1;
+    }
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    currentTick = (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+  } while(zdb->state == zlimdb_state_connected);
 #endif
   return -1;
 }
@@ -698,7 +766,12 @@ int zlimdb_interrupt(zlimdb* zdb)
     return -1;
   }
 #else
-  // todo
+  uint64_t val = 1;
+  if(write(zdb->interruptEventFd, &val, sizeof(val)) == -1)
+  {
+    zlimdbErrno = zlimdb_local_error_system;
+    return -1;
+  }
 #endif
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
@@ -846,7 +919,7 @@ int zlimdb_receiveResponseOrMessage(zlimdb* zdb, void* buffer, size_t size)
     else
     {
       size_t bufferSize = header->size;
-      void* buffer = _alloca(bufferSize);
+      void* buffer = alloca(bufferSize);
       if(zlimdb_receiveData(zdb, (char*)buffer +  sizeof(*header), bufferSize - sizeof(*header)) != 0)
           return -1; 
       if(zdb->callback)

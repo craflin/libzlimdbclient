@@ -3,22 +3,20 @@
 2010-06-11 : Igor Pavlov : Public domain
 This code is based on public domain code from Wei Dai's Crypto++ library. */
 
-#ifdef _MSC_VER
-
 #include <string.h>
-
+#ifdef _MSC_VER
 #include <stdlib.h>
-#define rotlFixed(x, n) _rotl((x), (n))
-#define rotrFixed(x, n) _rotr((x), (n))
-
-#else
-
-#define rotlFixed(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
-#define rotrFixed(x, n) (((x) >> (n)) | ((x) << (32 - (n))))
-
 #endif
 
 #include "sha256.h"
+
+#ifdef _MSC_VER
+#define rotlFixed(x, n) _rotl((x), (n))
+#define rotrFixed(x, n) _rotr((x), (n))
+#else
+#define rotlFixed(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
+#define rotrFixed(x, n) (((x) >> (n)) | ((x) << (32 - (n))))
+#endif
 
 typedef uint32_t UInt32;
 typedef uint8_t Byte;
@@ -251,7 +249,8 @@ void sha256_hmac(const uint8_t* key, size_t keySize, const uint8_t* message, siz
     
   uint8_t oKeyPad[SHA256_BLOCK_SIZE];
   uint8_t iKeyPad[SHA256_BLOCK_SIZE];
-  for(int i = 0; i < SHA256_BLOCK_SIZE; ++i)
+  int i;
+  for(i = 0; i < SHA256_BLOCK_SIZE; ++i)
   {
     oKeyPad[i] = hashKey[i] ^ 0x5c;
     iKeyPad[i] = hashKey[i] ^ 0x36;
