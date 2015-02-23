@@ -125,6 +125,7 @@ typedef struct
 {
   zlimdb_header header;
   uint32_t table_id;
+  uint64_t id;
 } zlimdb_remove_request;
 
 typedef struct
