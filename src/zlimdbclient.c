@@ -438,6 +438,38 @@ int zlimdb_add(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data)
   return 0;
 }
 
+int zlimdb_update(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data)
+{
+  if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
+    return -1;
+  }
+  if(zdb->state != zlimdb_state_connected)
+  {
+    zlimdbErrno = zlimdb_local_error_state;
+    return -1;
+  }
+
+  // create message
+  zlimdb_update_request* updateRequest = alloca(sizeof(zlimdb_update_request) + data->size);
+  updateRequest->header.message_type = zlimdb_message_add_request;
+  updateRequest->header.size = sizeof(zlimdb_update_request) + data->size;
+  updateRequest->table_id = table_id;
+  memcpy(updateRequest + 1, data, data->size);
+
+  // send message
+  if(zlimdb_sendRequest(zdb, &updateRequest->header) != 0)
+    return -1;
+
+  // receive response
+  zlimdb_header updateResponse;
+  if(zlimdb_receiveResponseOrMessage(zdb, &updateRequest, sizeof(updateResponse)) != 0)
+    return -1;
+  zlimdbErrno = zlimdb_local_error_none;
+  return 0;
+}
+
 int zlimdb_remove(zlimdb* zdb, uint32_t table_id, uint64_t entity_id)
 {
   if(!zdb)
@@ -463,7 +495,7 @@ int zlimdb_remove(zlimdb* zdb, uint32_t table_id, uint64_t entity_id)
     return -1;
 
   // receive response
-  zlimdb_add_response removeResponse;
+  zlimdb_header removeResponse;
   if(zlimdb_receiveResponseOrMessage(zdb, &removeResponse, sizeof(removeResponse)) != 0)
     return -1;
   zlimdbErrno = zlimdb_local_error_none;
