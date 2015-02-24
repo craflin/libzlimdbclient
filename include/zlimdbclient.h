@@ -44,6 +44,7 @@ int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* table_id);
 int zlimdb_add_user(zlimdb* zdb, const char* user_name, const char* password);
 
 int zlimdb_add(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data);
+int zlimdb_remove(zlimdb* zdb, uint32_t table_id, uint64_t entity_id);
 int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
 int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
 int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t maxSize, uint32_t* size);

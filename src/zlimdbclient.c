@@ -438,6 +438,38 @@ int zlimdb_add(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data)
   return 0;
 }
 
+int zlimdb_remove(zlimdb* zdb, uint32_t table_id, uint64_t entity_id)
+{
+  if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
+    return -1;
+  }
+  if(zdb->state != zlimdb_state_connected)
+  {
+    zlimdbErrno = zlimdb_local_error_state;
+    return -1;
+  }
+
+  // create message
+  zlimdb_remove_request removeRequest;
+  removeRequest.header.message_type = zlimdb_message_remove_request;
+  removeRequest.header.size = sizeof(zlimdb_remove_request);
+  removeRequest.table_id = table_id;
+  removeRequest.id = entity_id;
+
+  // send message
+  if(zlimdb_sendRequest(zdb, &removeRequest.header) != 0)
+    return -1;
+
+  // receive response
+  zlimdb_add_response removeResponse;
+  if(zlimdb_receiveResponseOrMessage(zdb, &removeResponse, sizeof(removeResponse)) != 0)
+    return -1;
+  zlimdbErrno = zlimdb_local_error_none;
+  return 0;
+}
+
 int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param)
 {
   if(!zdb)
