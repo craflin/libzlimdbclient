@@ -546,7 +546,7 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uin
   }
 
   // create message
-  zlimdb_query_request subscribeRequest;
+  zlimdb_subscribe_request subscribeRequest;
   subscribeRequest.header.message_type = zlimdb_message_subscribe_request;
   subscribeRequest.header.size = sizeof(subscribeRequest);
   subscribeRequest.table_id = table_id;
@@ -653,6 +653,33 @@ int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t maxSize2, uin
       }
     }
   }
+}
+
+int zlimdb_unsubscribe(zlimdb* zdb, uint32_t table_id)
+{
+  if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
+    return -1;
+  }
+  if(zdb->state != zlimdb_state_connected)
+  {
+    zlimdbErrno = zlimdb_local_error_state;
+    return -1;
+  }
+
+  // create message
+  zlimdb_unsubscribe_request unsubscribeRequest;
+  unsubscribeRequest.header.message_type = zlimdb_message_unsubscribe_request;
+  unsubscribeRequest.header.size = sizeof(unsubscribeRequest);
+  unsubscribeRequest.table_id = table_id;
+
+  // send message
+  if(zlimdb_sendRequest(zdb, &unsubscribeRequest.header) != 0)
+    return -1;
+
+  zlimdbErrno = zlimdb_local_error_none;
+  return 0;
 }
 
 int zlimdb_sync(zlimdb* zdb, uint32_t table_id, int64_t* server_time, int64_t* table_time)
