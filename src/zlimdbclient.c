@@ -315,7 +315,9 @@ const char* zlimdb_strerror(int errnum)
   case zlimdb_local_error_resolve: return "Hostname could not be resolved";
   case zlimdb_local_error_interrupted: return "Operation was interruped";
   case zlimdb_local_error_timeout: return "Operation has timed out";
-  case zlimdb_local_error_invalid_message_size: return "Received invalid message";
+  case zlimdb_local_error_invalid_message_size: return "Received invalid message size";
+  case zlimdb_local_error_invalid_message_data: return "Received invalid message data";
+  case zlimdb_local_error_invalid_response: return "Received invalid response";
   case zlimdb_local_error_buffer_size: return "Buffer was too small";
   case zlimdb_local_error_connection_closed: return "Connection was closed";
 
@@ -991,7 +993,7 @@ int zlimdb_receiveResponse(zlimdb* zdb, void* buffer, size_t size)
   if(header->request_id != 1)
   {
     zdb->state = zlimdb_state_error;
-    zlimdbErrno = zlimdb_local_error_invalid_message_size;
+    zlimdbErrno = zlimdb_local_error_invalid_response;
     return -1;
   }
   return zlimdb_receiveResponseData(zdb, header, (char*)buffer + sizeof(*header), size - sizeof(*header));
