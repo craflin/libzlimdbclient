@@ -651,7 +651,7 @@ int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t maxSize2, uin
       if(zdb->callback)
       {
         *(zlimdb_header*)buffer = header;
-        zdb->callback(zdb->userData, buffer, bufferSize);
+        zdb->callback(zdb->userData, (zlimdb_header*)buffer);
       }
     }
   }
@@ -781,7 +781,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
       if(zdb->callback)
       {
         *(zlimdb_header*)buffer = header;
-        zdb->callback(zdb->userData, buffer, bufferSize);
+        zdb->callback(zdb->userData, (zlimdb_header*)buffer);
       }
     }
     currentTick = GetTickCount();
@@ -818,7 +818,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
       if(zdb->callback)
       {
         *(zlimdb_header*)buffer = header;
-        zdb->callback(zdb->userData, buffer, bufferSize);
+        zdb->callback(zdb->userData, (zlimdb_header*)buffer);
       }
     }
     if(fds[1].revents)
@@ -1018,7 +1018,7 @@ int zlimdb_receiveResponseOrMessage(zlimdb* zdb, void* buffer, size_t size)
       if(zdb->callback)
       {
         *(zlimdb_header*)buffer = *header;
-        zdb->callback(zdb->userData, buffer, bufferSize);
+        zdb->callback(zdb->userData, (zlimdb_header*)buffer);
       }
     }
   }
