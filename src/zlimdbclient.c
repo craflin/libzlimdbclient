@@ -387,8 +387,8 @@ int zlimdb_add_user(zlimdb* zdb, const char* user_name, const char* password)
   char* tableName = alloca(13 + userNameLen);
   memcpy(tableName, "users/", 6);
   memcpy(tableName + 6, user_name, userNameLen);
-  memcpy(tableName + 6 + userNameLen, "/.user", 6);
-  tableName[12 + userNameLen] = '\0';
+  memcpy(tableName + 6 + userNameLen, "/user", 5);
+  tableName[11 + userNameLen] = '\0';
   uint32_t tableId;
   if(zlimdb_add_table(zdb, tableName, &tableId) != 0)
     return -1;
