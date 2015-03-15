@@ -656,9 +656,9 @@ int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t* size2)
   }
 }
 
-zlimdb_entity* zlimdb_get_entity(void** data, uint32_t* size)
+zlimdb_entity* zlimdb_get_entity(uint32_t minSize, void** data, uint32_t* size)
 {
-  if(*size < sizeof(zlimdb_entity))
+  if(*size < minSize)
     return 0;
   uint32_t entitySize = ((zlimdb_entity*)*data)->size;
    if(*size < entitySize)

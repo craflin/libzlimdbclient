@@ -50,7 +50,7 @@ int zlimdb_remove(zlimdb* zdb, uint32_t table_id, uint64_t entity_id);
 int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
 int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
 int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size);
-zlimdb_entity* zlimdb_get_entity(void** data, uint32_t* size);
+zlimdb_entity* zlimdb_get_entity(uint32_t minSize, void** data, uint32_t* size);
 int zlimdb_unsubscribe(zlimdb* zdb, uint32_t table_id);
 int zlimdb_sync(zlimdb* zdb, uint32_t table_id, int64_t* server_time, int64_t* table_time);
 
