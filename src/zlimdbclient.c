@@ -19,8 +19,6 @@
 #include "zlimdbclient.h"
 #include "sha256.h"
 
-#define ZLIMDB_DEFAULT_PORT 13211
-
 #ifdef _WIN32
 #define ERRNO WSAGetLastError()
 #define SET_ERRNO(e) WSASetLastError(e)
@@ -565,7 +563,7 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uin
 }
 
 
-int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t maxSize2, uint32_t* size2)
+int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t* size2)
 {
   if(!zdb)
   {
@@ -586,6 +584,7 @@ int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t maxSize2, uin
   }
 
   // receive response
+  uint32_t maxSize2 = *size2;
   zlimdb_header header;
   for(;;)
   {
@@ -655,6 +654,19 @@ int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t maxSize2, uin
       }
     }
   }
+}
+
+zlimdb_entity* zlimdb_get_entity(void** data, uint32_t* size)
+{
+  if(*size < sizeof(zlimdb_entity))
+    return 0;
+  uint32_t entitySize = ((zlimdb_entity*)*data)->size;
+   if(*size < entitySize)
+     return 0;
+  zlimdb_entity* result = *data;
+  *data = (char*)*data + entitySize;
+  *size -= entitySize;
+  return result;
 }
 
 int zlimdb_unsubscribe(zlimdb* zdb, uint32_t table_id)

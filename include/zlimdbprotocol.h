@@ -8,6 +8,9 @@
 extern "C" {
 #endif
 
+#define ZLIMDB_DEFAULT_PORT 13211
+#define ZLIMDB_MAX_MESSAGE_SIZE 65553
+
 typedef enum
 {
   zlimdb_message_error_response,
