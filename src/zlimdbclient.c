@@ -401,12 +401,12 @@ int zlimdb_add_user(zlimdb* zdb, const char* user_name, const char* password)
   for(; i < end; ++i)
     *i = rand();
   sha256_hmac(userEntity.pw_salt, sizeof(userEntity.pw_salt), (const uint8_t*)password, strlen(password), userEntity.pw_hash);
-  if(zlimdb_add(zdb, tableId, &userEntity.entity) != 0)
+  if(zlimdb_add(zdb, tableId, &userEntity.entity, 0) != 0)
     return -1;
   return 0;
 }
 
-int zlimdb_add(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data)
+int zlimdb_add(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data, uint64_t* id)
 {
   if(!zdb)
   {
@@ -434,6 +434,8 @@ int zlimdb_add(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data)
   zlimdb_add_response addResponse;
   if(zlimdb_receiveResponseOrMessage(zdb, &addResponse, sizeof(addResponse)) != 0)
     return -1;
+  if(id)
+    *id = addResponse.id;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
