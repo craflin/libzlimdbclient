@@ -534,6 +534,23 @@ int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_
   return 0;
 }
 
+int zlimdb_query_entity(zlimdb* zdb, uint32_t table_id, uint64_t entityId, void* data, uint32_t* size)
+{
+  if(zlimdb_query(zdb, table_id, zlimdb_query_type_by_id, entityId) != 0)
+    return -1;
+  if(zlimdb_get_response(zdb, data, size) != 0)
+    return -1;
+  if(zdb->state != zlimdb_state_received_response)
+  {
+    zdb->state = zlimdb_state_error;
+    zlimdbErrno = zlimdb_local_error_invalid_response;
+    return -1;
+  }
+  zdb->state = zlimdb_state_connected;
+  zlimdbErrno = zlimdb_local_error_none;
+  return 0;
+}
+
 int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param)
 {
   if(!zdb)
