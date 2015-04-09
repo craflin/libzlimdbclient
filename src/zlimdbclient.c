@@ -750,6 +750,35 @@ int zlimdb_sync(zlimdb* zdb, uint32_t table_id, int64_t* server_time, int64_t* t
   return 0;
 }
 
+int zlimdb_control(zlimdb* zdb, uint32_t table_id, uint32_t control_code, void* data, uint32_t size)
+{
+  if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
+    return -1;
+  }
+  if(zdb->state != zlimdb_state_connected)
+  {
+    zlimdbErrno = zlimdb_local_error_state;
+    return -1;
+  }
+
+  // create message
+  zlimdb_control_request* controlRequest = alloca(sizeof(zlimdb_control_request) + size);;
+  controlRequest->header.message_type = zlimdb_message_control_request;
+  controlRequest->header.size = sizeof(controlRequest) + size;
+  controlRequest->table_id = table_id;
+  controlRequest->control_code = control_code;
+  memcpy(controlRequest + 1, data, size);
+
+  // send message
+  if(zlimdb_sendRequest(zdb, &controlRequest->header) != 0)
+    return -1;
+
+  zlimdbErrno = zlimdb_local_error_none;
+  return 0;
+}
+
 int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
 {
   if(!zdb)
