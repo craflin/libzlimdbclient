@@ -164,6 +164,7 @@ typedef struct
 {
   zlimdb_header header;
   uint32_t table_id;
+  uint64_t id;
   uint32_t control_code;
 } zlimdb_control_request;
 
