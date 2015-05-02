@@ -33,6 +33,8 @@ typedef enum
   zlimdb_message_sync_request,
   zlimdb_message_sync_response,
   zlimdb_message_control_request,
+  zlimdb_message_clear_request,
+  zlimdb_message_clear_response,
 } zlimdb_message_type;
   
 typedef enum
@@ -167,6 +169,12 @@ typedef struct
   uint64_t id;
   uint32_t control_code;
 } zlimdb_control_request;
+
+typedef struct
+{
+  zlimdb_header header;
+  uint32_t table_id;
+} zlimdb_clear_request;
 
 typedef struct
 {
