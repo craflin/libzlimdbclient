@@ -35,6 +35,8 @@ typedef enum
   zlimdb_message_control_request,
   zlimdb_message_clear_request,
   zlimdb_message_clear_response,
+  zlimdb_message_copy_request,
+  zlimdb_message_copy_response
 } zlimdb_message_type;
   
 typedef enum
@@ -175,6 +177,13 @@ typedef struct
   zlimdb_header header;
   uint32_t table_id;
 } zlimdb_clear_request;
+
+typedef struct
+{
+  zlimdb_header header;
+  uint32_t src_table_id;
+  uint32_t dest_table_id;
+} zlimdb_copy_request;
 
 typedef struct
 {
