@@ -181,8 +181,8 @@ typedef struct
 typedef struct
 {
   zlimdb_header header;
-  uint32_t src_table_id;
-  uint32_t dest_table_id;
+  uint32_t table_id;
+  uint16_t new_name_size;
 } zlimdb_copy_request;
 
 typedef struct
