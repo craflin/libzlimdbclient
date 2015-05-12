@@ -186,6 +186,8 @@ typedef struct
   uint16_t new_name_size;
 } zlimdb_copy_request;
 
+typedef zlimdb_add_response zlimdb_copy_response;
+
 typedef struct
 {
   uint64_t id;
