@@ -42,6 +42,7 @@ int zlimdb_errno();
 const char* zlimdb_strerror(int errnum);
 
 int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* table_id);
+int zlimdb_copy_table(zlimdb* zdb, uint32_t table_id, const char* new_name, uint32_t* new_table_id);
 int zlimdb_add_user(zlimdb* zdb, const char* user_name, const char* password);
 
 int zlimdb_add(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data, uint64_t* id);

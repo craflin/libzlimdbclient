@@ -378,6 +378,43 @@ int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* table_id)
   return 0;
 }
 
+int zlimdb_copy_table(zlimdb* zdb, uint32_t table_id, const char* new_name, uint32_t* new_table_id)
+{
+  if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
+    return -1;
+  }
+  if(zdb->state != zlimdb_state_connected)
+  {
+    zlimdbErrno = zlimdb_local_error_state;
+    return -1;
+  }
+
+  // create message
+  size_t nameLen = strlen(new_name);
+  zlimdb_copy_request* copyRequest = alloca(sizeof(zlimdb_copy_request) + nameLen);
+  copyRequest->header.message_type = zlimdb_message_copy_request;
+  copyRequest->header.size = sizeof(zlimdb_copy_request) + nameLen;
+  copyRequest->table_id = table_id;
+  copyRequest->new_name_size = nameLen;
+  memcpy(copyRequest + 1, new_name, nameLen);
+
+  // send message
+  if(zlimdb_sendRequest(zdb, &copyRequest->header) != 0)
+    return -1;
+
+  // receive response
+  zlimdb_copy_response copyResponse;
+  if(zlimdb_receiveResponseOrMessage(zdb, &copyResponse, sizeof(copyResponse)) != 0)
+    return -1;
+  if(new_table_id)
+    *new_table_id = (uint32_t)copyResponse.id;
+  zlimdbErrno = zlimdb_local_error_none;
+  return 0;
+
+}
+
 int zlimdb_add_user(zlimdb* zdb, const char* user_name, const char* password)
 {
   // create user table
