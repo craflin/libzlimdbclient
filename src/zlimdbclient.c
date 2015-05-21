@@ -437,7 +437,7 @@ int zlimdb_copy_table(zlimdb* zdb, uint32_t table_id, const char* new_name, uint
   size_t nameLen = strlen(new_name);
   zlimdb_copy_request* copyRequest = alloca(sizeof(zlimdb_copy_request) + sizeof(zlimdb_table_entity) + nameLen);
   copyRequest->header.message_type = zlimdb_message_copy_request;
-  copyRequest->header.size = sizeof(zlimdb_copy_request) + nameLen;
+  copyRequest->header.size = sizeof(zlimdb_copy_request) + sizeof(zlimdb_table_entity) + nameLen;
   copyRequest->table_id = table_id;
   zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(copyRequest + 1);
   tableEntity->entity.id = 0;
