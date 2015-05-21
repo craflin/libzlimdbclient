@@ -379,6 +379,47 @@ int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* table_id)
   return 0;
 }
 
+int zlimdb_find_table(zlimdb* zdb, const char* name, uint32_t* table_id)
+{
+  if(!zdb)
+  {
+    zlimdbErrno = zlimdb_local_error_invalid_parameter;
+    return -1;
+  }
+  if(zdb->state != zlimdb_state_connected)
+  {
+    zlimdbErrno = zlimdb_local_error_state;
+    return -1;
+  }
+
+  // create message
+  size_t nameLen = strlen(name);
+  zlimdb_find_request* findRequest = alloca(sizeof(zlimdb_find_request) + sizeof(zlimdb_table_entity) + nameLen);
+  findRequest->header.message_type = zlimdb_message_find_request;
+  findRequest->header.size = sizeof(zlimdb_find_request) + sizeof(zlimdb_table_entity) + nameLen;
+  findRequest->table_id = zlimdb_table_tables;
+  zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(findRequest + 1);
+  tableEntity->entity.id = 0;
+  tableEntity->entity.time = 0;
+  tableEntity->entity.size = sizeof(zlimdb_table_entity) + nameLen;
+  tableEntity->name_size = nameLen;
+  tableEntity->flags = 0;
+  memcpy(tableEntity + 1, name, nameLen);
+
+  // send message
+  if(zlimdb_sendRequest(zdb, &findRequest->header) != 0)
+    return -1;
+
+  // receive response
+  zlimdb_add_response addResponse;
+  if(zlimdb_receiveResponseOrMessage(zdb, &addResponse, sizeof(addResponse)) != 0)
+    return -1;
+  if(table_id)
+    *table_id = (uint32_t)addResponse.id;
+  zlimdbErrno = zlimdb_local_error_none;
+  return 0;
+}
+
 int zlimdb_copy_table(zlimdb* zdb, uint32_t table_id, const char* new_name, uint32_t* new_table_id)
 {
   if(!zdb)
@@ -394,12 +435,17 @@ int zlimdb_copy_table(zlimdb* zdb, uint32_t table_id, const char* new_name, uint
 
   // create message
   size_t nameLen = strlen(new_name);
-  zlimdb_copy_request* copyRequest = alloca(sizeof(zlimdb_copy_request) + nameLen);
+  zlimdb_copy_request* copyRequest = alloca(sizeof(zlimdb_copy_request) + sizeof(zlimdb_table_entity) + nameLen);
   copyRequest->header.message_type = zlimdb_message_copy_request;
   copyRequest->header.size = sizeof(zlimdb_copy_request) + nameLen;
   copyRequest->table_id = table_id;
-  copyRequest->new_name_size = nameLen;
-  memcpy(copyRequest + 1, new_name, nameLen);
+  zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(copyRequest + 1);
+  tableEntity->entity.id = 0;
+  tableEntity->entity.time = 0;
+  tableEntity->entity.size = sizeof(zlimdb_table_entity) + nameLen;
+  tableEntity->name_size = nameLen;
+  tableEntity->flags = 0;
+  memcpy(tableEntity + 1, new_name, nameLen);
 
   // send message
   if(zlimdb_sendRequest(zdb, &copyRequest->header) != 0)

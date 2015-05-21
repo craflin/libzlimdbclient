@@ -36,7 +36,9 @@ typedef enum
   zlimdb_message_clear_request,
   zlimdb_message_clear_response,
   zlimdb_message_copy_request,
-  zlimdb_message_copy_response
+  zlimdb_message_copy_response,
+  zlimdb_message_find_request,
+  zlimdb_message_find_response
 } zlimdb_message_type;
   
 typedef enum
@@ -123,11 +125,10 @@ typedef struct
   uint64_t id;
 } zlimdb_add_response;
 
-typedef struct
-{
-  zlimdb_header header;
-  uint32_t table_id;
-} zlimdb_update_request;
+typedef zlimdb_add_request zlimdb_update_request;
+typedef zlimdb_add_request zlimdb_clear_request;
+typedef zlimdb_add_request zlimdb_copy_request;
+typedef zlimdb_add_request zlimdb_find_request;
 
 typedef struct
 {
@@ -172,19 +173,6 @@ typedef struct
   uint64_t id;
   uint32_t control_code;
 } zlimdb_control_request;
-
-typedef struct
-{
-  zlimdb_header header;
-  uint32_t table_id;
-} zlimdb_clear_request;
-
-typedef struct
-{
-  zlimdb_header header;
-  uint32_t table_id;
-  uint16_t new_name_size;
-} zlimdb_copy_request;
 
 typedef zlimdb_add_response zlimdb_copy_response;
 
