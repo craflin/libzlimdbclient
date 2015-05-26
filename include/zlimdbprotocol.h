@@ -175,6 +175,7 @@ typedef struct
 } zlimdb_control_request;
 
 typedef zlimdb_add_response zlimdb_copy_response;
+typedef zlimdb_add_response zlimdb_find_response;
 
 typedef struct
 {

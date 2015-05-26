@@ -411,11 +411,11 @@ int zlimdb_find_table(zlimdb* zdb, const char* name, uint32_t* table_id)
     return -1;
 
   // receive response
-  zlimdb_add_response addResponse;
-  if(zlimdb_receiveResponseOrMessage(zdb, &addResponse, sizeof(addResponse)) != 0)
+  zlimdb_find_response findResponse;
+  if(zlimdb_receiveResponseOrMessage(zdb, &findResponse, sizeof(findResponse)) != 0)
     return -1;
   if(table_id)
-    *table_id = (uint32_t)addResponse.id;
+    *table_id = (uint32_t)findResponse.id;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
