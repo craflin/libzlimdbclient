@@ -697,7 +697,7 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uin
 }
 
 
-int zlimdb_get_response(zlimdb* zdb, zlimdb_entity* data, uint32_t* size2)
+int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
 {
   if(!zdb)
   {
