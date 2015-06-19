@@ -539,7 +539,7 @@ int zlimdb_update(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data)
 
   // create message
   zlimdb_update_request* updateRequest = alloca(sizeof(zlimdb_update_request) + data->size);
-  updateRequest->header.message_type = zlimdb_message_add_request;
+  updateRequest->header.message_type = zlimdb_message_update_request;
   updateRequest->header.size = sizeof(zlimdb_update_request) + data->size;
   updateRequest->table_id = table_id;
   memcpy(updateRequest + 1, data, data->size);
@@ -550,7 +550,7 @@ int zlimdb_update(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data)
 
   // receive response
   zlimdb_header updateResponse;
-  if(zlimdb_receiveResponseOrMessage(zdb, &updateRequest, sizeof(updateResponse)) != 0)
+  if(zlimdb_receiveResponseOrMessage(zdb, &updateResponse, sizeof(updateResponse)) != 0)
     return -1;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
@@ -1157,7 +1157,6 @@ int zlimdb_receiveResponseData(zlimdb* zdb, const zlimdb_header* header, void* d
   if(zlimdb_receiveData(zdb, data, dataSize) != 0)
     return -1;
   return 0;
-
 }
 
 int zlimdb_receiveResponse(zlimdb* zdb, void* buffer, size_t size)
