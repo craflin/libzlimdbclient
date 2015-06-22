@@ -47,6 +47,11 @@ typedef enum
   zlimdb_state_error,
 } zlimdb_state;
 
+struct _zlimdb_queue_header
+{
+  struct _zlimdb_queue_header* next;
+};
+
 struct _zlimdb
 {
   zlimdb_state state;
@@ -60,6 +65,8 @@ struct _zlimdb
 #endif
   zlimdb_callback callback;
   void* userData;
+  struct _zlimdb_queue_header* firstQueuedMessage;
+  struct _zlimdb_queue_header* lastQueuedMessage;
 };
 
 #ifdef _MSC_VER
@@ -87,6 +94,7 @@ int zlimdb_init()
     if(WSAStartup(wVersionRequested, &wsaData) != 0)
     {
       InterlockedDecrement(&zlimdbInitCalls);
+      zlimdbErrno = zlimdb_local_error_system;
       return -1;
     }
   }
@@ -104,6 +112,7 @@ int zlimdb_cleanup()
     if(WSACleanup() != 0)
     {
       InterlockedIncrement(&zlimdbInitCalls);
+      zlimdbErrno = zlimdb_local_error_system;
       return -1;
     }
   }
@@ -127,6 +136,7 @@ zlimdb* zlimdb_create(zlimdb_callback callback, void* user_data)
     return 0;
   }
   zdb->socket = INVALID_SOCKET;
+  zdb->firstQueuedMessage = zdb->lastQueuedMessage = 0;
 #ifdef _WIN32
   zdb->hInterruptEvent = WSA_INVALID_EVENT;
   zdb->hReadEvent = WSA_INVALID_EVENT;
@@ -171,6 +181,11 @@ int zlimdb_free(zlimdb* zdb)
   if(zdb->interruptEventFd != INVALID_SOCKET)
     CLOSE(zdb->interruptEventFd);
 #endif
+  for(struct _zlimdb_queue_header* i = zdb->firstQueuedMessage, *next; i; i = next)
+  {
+    next = i->next;
+    free(i);
+  }
   free(zdb);
   return 0;
 }
@@ -908,6 +923,16 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     return -1;
   }
 
+  while(zdb->firstQueuedMessage)
+  {
+    struct _zlimdb_queue_header* msg = zdb->firstQueuedMessage;
+    if(!(zdb->firstQueuedMessage = msg->next))
+      zdb->lastQueuedMessage = 0;
+    if(zdb->callback)
+      zdb->callback(zdb->userData, (zlimdb_header*)(msg + 1));
+    free(msg);
+  }
+
 #ifdef _WIN32
   if(zdb->selectedEvents == 0)
   {
@@ -1187,14 +1212,22 @@ int zlimdb_receiveResponseOrMessage(zlimdb* zdb, void* buffer, size_t size)
     else
     {
       size_t bufferSize = header->size;
-      void* buffer = alloca(bufferSize);
-      if(zlimdb_receiveData(zdb, (char*)buffer +  sizeof(*header), bufferSize - sizeof(*header)) != 0)
-          return -1; 
-      if(zdb->callback)
+      void* buffer = malloc(sizeof(struct _zlimdb_queue_header) + bufferSize);
+      if(!buffer)
       {
-        *(zlimdb_header*)buffer = *header;
-        zdb->callback(zdb->userData, (zlimdb_header*)buffer);
+        zdb->state = zlimdb_state_error;
+        zlimdbErrno = zlimdb_local_error_system;
+        return -1;
       }
+      if(zlimdb_receiveData(zdb, (char*)buffer + (sizeof(*header) + sizeof(struct _zlimdb_queue_header)), bufferSize - sizeof(*header)) != 0)
+          return -1; 
+      *(zlimdb_header*)((char*)buffer + sizeof(struct _zlimdb_queue_header)) = *header;
+      ((struct _zlimdb_queue_header*)buffer)->next = 0;
+      if(zdb->lastQueuedMessage)
+        zdb->lastQueuedMessage->next = buffer;
+      else
+        zdb->firstQueuedMessage = buffer;
+      zdb->lastQueuedMessage = buffer;
     }
   }
 }
