@@ -923,31 +923,32 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     return -1;
   }
 
-  while(zdb->firstQueuedMessage)
-  {
-    struct _zlimdb_queue_header* msg = zdb->firstQueuedMessage;
-    if(!(zdb->firstQueuedMessage = msg->next))
-      zdb->lastQueuedMessage = 0;
-    if(zdb->callback)
-      zdb->callback(zdb->userData, (zlimdb_header*)(msg + 1));
-    free(msg);
-  }
-
 #ifdef _WIN32
-  if(zdb->selectedEvents == 0)
-  {
-    if(WSAEventSelect(zdb->socket, zdb->hReadEvent, FD_READ| FD_CLOSE) == SOCKET_ERROR)
-    {
-      zdb->state = zlimdb_state_error;
-      zlimdbErrno = zlimdb_local_error_system;
-      return -1;
-    }
-  }
-
   DWORD currentTick = GetTickCount();
   DWORD startTick = currentTick;
   do
   {
+    while(zdb->firstQueuedMessage)
+    {
+      struct _zlimdb_queue_header* msg = zdb->firstQueuedMessage;
+      if(!(zdb->firstQueuedMessage = msg->next))
+        zdb->lastQueuedMessage = 0;
+      if(zdb->callback)
+        zdb->callback(zdb->userData, (zlimdb_header*)(msg + 1));
+      free(msg);
+    }
+
+    if(zdb->selectedEvents == 0)
+    {
+      if(WSAEventSelect(zdb->socket, zdb->hReadEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
+      {
+        zdb->state = zlimdb_state_error;
+        zlimdbErrno = zlimdb_local_error_system;
+        return -1;
+      }
+      zdb->selectedEvents = FD_READ | FD_CLOSE;
+    }
+
     HANDLE handles[] = {zdb->hReadEvent, zdb->hInterruptEvent};
     DWORD passedTicks = currentTick - startTick;
     switch(passedTicks <= timeout ? WaitForMultipleObjects(2, handles, FALSE, timeout - passedTicks) : WAIT_TIMEOUT)
@@ -994,6 +995,16 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
   int64_t startTick = currentTick;
   do
   {
+    while(zdb->firstQueuedMessage)
+    {
+      struct _zlimdb_queue_header* msg = zdb->firstQueuedMessage;
+      if(!(zdb->firstQueuedMessage = msg->next))
+        zdb->lastQueuedMessage = 0;
+      if(zdb->callback)
+        zdb->callback(zdb->userData, (zlimdb_header*)(msg + 1));
+      free(msg);
+    }
+
     int64_t passedTicks = currentTick - startTick;
     struct pollfd fds[] = {
       { zdb->socket, POLLIN /*| POLLRDHUP*/ | POLLHUP, 0},
@@ -1077,7 +1088,7 @@ int zlimdb_sendRequest(zlimdb* zdb, zlimdb_header* header)
   header->request_id = 1;
   assert(header->size >= sizeof(*header));
   unsigned int sentSize = 0;
-  for(;;)
+  do
   {
     int res = send(zdb->socket, (const char*)header + sentSize, header->size - sentSize, 0);
     if(res < 0)
@@ -1085,7 +1096,11 @@ int zlimdb_sendRequest(zlimdb* zdb, zlimdb_header* header)
 #ifdef _WIN32
       if(ERRNO == WSAEWOULDBLOCK)
       {
-        WSAEventSelect(zdb->socket, NULL, 0);
+        if(zdb->selectedEvents)
+        {
+          WSAEventSelect(zdb->socket, zdb->hReadEvent, 0);
+          zdb->selectedEvents = 0;
+        }
         u_long val = 0;
         if(ioctlsocket(zdb->socket, FIONBIO, &val) != 0)
         {
@@ -1093,7 +1108,6 @@ int zlimdb_sendRequest(zlimdb* zdb, zlimdb_header* header)
           zlimdbErrno = zlimdb_local_error_system;
           return -1;
         }
-        zdb->selectedEvents = 0;
         continue;
       }
 #endif
@@ -1101,8 +1115,9 @@ int zlimdb_sendRequest(zlimdb* zdb, zlimdb_header* header)
       zlimdbErrno = zlimdb_local_error_system;
       return -1;
     }
-    return 0;
+    sentSize += res;
   } while(sentSize < header->size);
+  return 0;
 }
 
 int zlimdb_receiveHeader(zlimdb* zdb, zlimdb_header* header)
@@ -1135,7 +1150,11 @@ int zlimdb_receiveData(zlimdb* zdb, void* data, size_t size)
 #ifdef _WIN32
       if(ERRNO == WSAEWOULDBLOCK)
       {
-        WSAEventSelect(zdb->socket, NULL, 0);
+        if(zdb->selectedEvents)
+        {
+          WSAEventSelect(zdb->socket, zdb->hReadEvent, 0);
+          zdb->selectedEvents = 0;
+        }
         u_long val = 0;
         if(ioctlsocket(zdb->socket, FIONBIO, &val) != 0)
         {
@@ -1143,7 +1162,6 @@ int zlimdb_receiveData(zlimdb* zdb, void* data, size_t size)
           zlimdbErrno = zlimdb_local_error_system;
           return -1;
         }
-        zdb->selectedEvents = 0;
         continue;
       }
 #endif
