@@ -181,10 +181,13 @@ int zlimdb_free(zlimdb* zdb)
   if(zdb->interruptEventFd != INVALID_SOCKET)
     CLOSE(zdb->interruptEventFd);
 #endif
-  for(struct _zlimdb_queue_header* i = zdb->firstQueuedMessage, *next; i; i = next)
   {
-    next = i->next;
-    free(i);
+    struct _zlimdb_queue_header* i, * next;
+    for(i = zdb->firstQueuedMessage; i; i = next)
+    {
+      next = i->next;
+      free(i);
+    }
   }
   free(zdb);
   return 0;
