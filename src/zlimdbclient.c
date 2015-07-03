@@ -318,6 +318,11 @@ int zlimdb_errno(zlimdb* zdb)
   return zlimdbErrno;
 }
 
+void zlimdb_seterrno(int errnum)
+{
+  zlimdbErrno = errnum;
+}
+
 const char* zlimdb_strerror(int errnum)
 {
   switch(errnum)
