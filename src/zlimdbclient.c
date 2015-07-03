@@ -482,7 +482,11 @@ int zlimdb_copy_table(zlimdb* zdb, uint32_t table_id, const char* new_name, uint
     *new_table_id = (uint32_t)copyResponse.id;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
+}
 
+int zlimdb_remove_table(zlimdb* zdb, uint32_t table_id)
+{
+  return zlimdb_remove(zdb, zlimdb_table_tables, table_id);
 }
 
 int zlimdb_add_user(zlimdb* zdb, const char* user_name, const char* password)
