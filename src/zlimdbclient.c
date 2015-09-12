@@ -805,14 +805,22 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
     else
     {
       size_t bufferSize = header.size;
-      void* buffer = alloca(bufferSize);
-      if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(header), bufferSize - sizeof(header)) != 0)
-          return -1; 
-      if(zdb->callback)
+      void* buffer = malloc(sizeof(struct _zlimdb_queue_header) + bufferSize);
+      if(!buffer)
       {
-        *(zlimdb_header*)buffer = header;
-        zdb->callback(zdb->userData, (zlimdb_header*)buffer);
+        zdb->state = zlimdb_state_error;
+        zlimdbErrno = zlimdb_local_error_system;
+        return -1;
       }
+      if(zlimdb_receiveData(zdb, (char*)buffer + (sizeof(header) + sizeof(struct _zlimdb_queue_header)), bufferSize - sizeof(header)) != 0)
+          return -1; 
+      *(zlimdb_header*)((char*)buffer + sizeof(struct _zlimdb_queue_header)) = header;
+      ((struct _zlimdb_queue_header*)buffer)->next = 0;
+      if(zdb->lastQueuedMessage)
+        zdb->lastQueuedMessage->next = buffer;
+      else
+        zdb->firstQueuedMessage = buffer;
+      zdb->lastQueuedMessage = buffer;
     }
   }
 }
