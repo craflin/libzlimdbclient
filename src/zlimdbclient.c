@@ -861,6 +861,10 @@ int zlimdb_unsubscribe(zlimdb* zdb, uint32_t table_id)
   if(zlimdb_sendRequest(zdb, &unsubscribeRequest.header) != 0)
     return -1;
 
+  // receive response
+  zlimdb_header unsubscribeResponse;
+  if(zlimdb_receiveResponseOrMessage(zdb, &unsubscribeResponse, sizeof(unsubscribeResponse)) != 0)
+    return -1;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
