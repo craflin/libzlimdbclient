@@ -920,7 +920,7 @@ int zlimdb_control(zlimdb* zdb, uint32_t table_id, uint64_t entity_id, uint32_t 
   // create message
   zlimdb_control_request* controlRequest = alloca(sizeof(zlimdb_control_request) + size);;
   controlRequest->header.message_type = zlimdb_message_control_request;
-  controlRequest->header.size = sizeof(controlRequest) + size;
+  controlRequest->header.size = sizeof(*controlRequest) + size;
   controlRequest->table_id = table_id;
   controlRequest->id = entity_id;
   controlRequest->control_code = control_code;
