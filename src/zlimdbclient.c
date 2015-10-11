@@ -40,12 +40,12 @@ typedef int SOCKET;
 
 typedef enum
 {
-  zlimdb_state_disconnected,
-  zlimdb_state_connected,
-  zlimdb_state_receiving_response,
-  zlimdb_state_received_response,
-  zlimdb_state_error,
-} zlimdb_state;
+  _zlimdb_state_disconnected,
+  _zlimdb_state_connected,
+  _zlimdb_state_receiving_response,
+  _zlimdb_state_received_response,
+  _zlimdb_state_error,
+} _zlimdb_state;
 
 struct _zlimdb_response_data
 {
@@ -62,7 +62,7 @@ struct _zlimdb_request_data
 
 struct _zlimdb
 {
-  zlimdb_state state;
+  _zlimdb_state state;
   SOCKET socket;
 #ifdef _WIN32
   HANDLE hInterruptEvent;
@@ -118,13 +118,13 @@ static int zlimdb_sendRequest(zlimdb* zdb, zlimdb_header* header)
         u_long val = 0;
         if(ioctlsocket(zdb->socket, FIONBIO, &val) != 0)
         {
-          zdb->state = zlimdb_state_error;
+          zdb->state = _zlimdb_state_error;
           zlimdbErrno = zlimdb_local_error_system;
           return -1;
         }
         continue;
       }
-      zdb->state = zlimdb_state_error;
+      zdb->state = _zlimdb_state_error;
       zlimdbErrno = zlimdb_local_error_system;
       return -1;
     }
@@ -155,7 +155,7 @@ static int zlimdb_receiveData(zlimdb* zdb, void* data, size_t size)
     int res = recv(zdb->socket, (char*)data + receivedSize, size - receivedSize, 0);
     if(res == 0)
     {
-      zdb->state = zlimdb_state_error;
+      zdb->state = _zlimdb_state_error;
       zlimdbErrno = zlimdb_local_error_connection_closed;
       return -1;
     }
@@ -172,14 +172,14 @@ static int zlimdb_receiveData(zlimdb* zdb, void* data, size_t size)
         u_long val = 0;
         if(ioctlsocket(zdb->socket, FIONBIO, &val) != 0)
         {
-          zdb->state = zlimdb_state_error;
+          zdb->state = _zlimdb_state_error;
           zlimdbErrno = zlimdb_local_error_system;
           return -1;
         }
         continue;
       }
 #endif
-      zdb->state = zlimdb_state_error;
+      zdb->state = _zlimdb_state_error;
       zlimdbErrno = zlimdb_local_error_system;
       return -1;
     }
@@ -197,7 +197,7 @@ static int zlimdb_receiveHeader(zlimdb* zdb, zlimdb_header* header)
     return -1;
   if(header->size < sizeof(zlimdb_header))
   {
-    zdb->state = zlimdb_state_error;
+    zdb->state = _zlimdb_state_error;
     zlimdbErrno = zlimdb_local_error_invalid_message_size;
     return -1;
   }
@@ -210,7 +210,7 @@ static int zlimdb_receiveResponseMessageData(zlimdb* zdb, const zlimdb_header* h
   {
     if(header->size != sizeof(zlimdb_error_response))
     {
-      zdb->state = zlimdb_state_error;
+      zdb->state = _zlimdb_state_error;
       zlimdbErrno = zlimdb_local_error_invalid_message_size;
       return -1;
     }
@@ -223,7 +223,7 @@ static int zlimdb_receiveResponseMessageData(zlimdb* zdb, const zlimdb_header* h
   size_t dataSize = header->size - sizeof(*header);
   if(dataSize > size)
   {
-    zdb->state = zlimdb_state_error;
+    zdb->state = _zlimdb_state_error;
     zlimdbErrno = zlimdb_local_error_buffer_size;
     return -1;
   }
@@ -239,7 +239,7 @@ static int zlimdb_copyResponseMessage(zlimdb* zdb, const struct _zlimdb_response
   {
     if(header->size != sizeof(zlimdb_error_response))
     {
-      zdb->state = zlimdb_state_error;
+      zdb->state = _zlimdb_state_error;
       zlimdbErrno = zlimdb_local_error_invalid_message_size;
       return -1;
     }
@@ -249,7 +249,7 @@ static int zlimdb_copyResponseMessage(zlimdb* zdb, const struct _zlimdb_response
   size_t dataSize = header->size - sizeof(*header);
   if(dataSize > size)
   {
-    zdb->state = zlimdb_state_error;
+    zdb->state = _zlimdb_state_error;
     zlimdbErrno = zlimdb_local_error_buffer_size;
     return -1;
   }
@@ -265,7 +265,7 @@ static int zlimdb_receiveLoginResponse(zlimdb* zdb, void* buffer, size_t size)
     return -1;
   if(header->request_id != 1)
   {
-    zdb->state = zlimdb_state_error;
+    zdb->state = _zlimdb_state_error;
     zlimdbErrno = zlimdb_local_error_invalid_response;
     return -1;
   }
@@ -295,7 +295,7 @@ static int zlimdb_receiveResponseOrMessage(zlimdb* zdb, uint32_t requestId, void
       for(request = zdb->openRequest; request; request = request->next)
         if(request->requestId == header->request_id)
           goto receiveResponse;
-      zdb->state = zlimdb_state_error;
+      zdb->state = _zlimdb_state_error;
       zlimdbErrno = zlimdb_local_error_invalid_response;
       return -1;
     receiveResponse: ;
@@ -303,7 +303,7 @@ static int zlimdb_receiveResponseOrMessage(zlimdb* zdb, uint32_t requestId, void
       struct _zlimdb_response_data* response = malloc(sizeof(struct _zlimdb_response_data) + header->size);
       if(!response)
       {
-        zdb->state = zlimdb_state_error;
+        zdb->state = _zlimdb_state_error;
         zlimdbErrno = zlimdb_local_error_system;
         return -1;
       }
@@ -426,7 +426,7 @@ zlimdb* zlimdb_create(zlimdb_callback callback, void* user_data)
     return 0;
   }
 #endif
-  zdb->state = zlimdb_state_disconnected;
+  zdb->state = _zlimdb_state_disconnected;
   zdb->socket = INVALID_SOCKET;
   zdb->callback = callback;
   zdb->userData = user_data;
@@ -475,7 +475,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_disconnected)
+  if(zdb->state != _zlimdb_state_disconnected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -572,7 +572,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
     return -1;
   }
 
-  zdb->state = zlimdb_state_connected;
+  zdb->state = _zlimdb_state_connected;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
@@ -585,7 +585,7 @@ int zlimdb_is_connected(zlimdb* zdb)
     return -1;
   }
   zlimdbErrno = zlimdb_local_error_none;
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
     return -1;
   return 0;
 }
@@ -645,7 +645,7 @@ int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* table_id)
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -687,7 +687,7 @@ int zlimdb_find_table(zlimdb* zdb, const char* name, uint32_t* table_id)
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
      return -1;
@@ -729,7 +729,7 @@ int zlimdb_copy_table(zlimdb* zdb, uint32_t table_id, const char* new_name, uint
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -804,7 +804,7 @@ int zlimdb_add(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data, uint64
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -839,7 +839,7 @@ int zlimdb_update(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data)
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -872,7 +872,7 @@ int zlimdb_remove(zlimdb* zdb, uint32_t table_id, uint64_t entity_id)
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -905,7 +905,7 @@ int zlimdb_clear(zlimdb* zdb, uint32_t table_id)
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -937,7 +937,7 @@ int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -972,7 +972,7 @@ int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_
     return -1;
   }
 
-  zdb->state = zlimdb_state_receiving_response;
+  zdb->state = _zlimdb_state_receiving_response;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
@@ -983,13 +983,13 @@ int zlimdb_query_entity(zlimdb* zdb, uint32_t table_id, uint64_t entityId, void*
     return -1;
   if(zlimdb_get_response(zdb, data, size) != 0)
     return -1;
-  if(zdb->state != zlimdb_state_received_response)
+  if(zdb->state != _zlimdb_state_received_response)
   {
-    zdb->state = zlimdb_state_error;
+    zdb->state = _zlimdb_state_error;
     zlimdbErrno = zlimdb_local_error_invalid_response;
     return -1;
   }
-  zdb->state = zlimdb_state_connected;
+  zdb->state = _zlimdb_state_connected;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
@@ -1001,7 +1001,7 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uin
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -1036,7 +1036,7 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uin
     return -1;
   }
 
-  zdb->state = zlimdb_state_receiving_response;
+  zdb->state = _zlimdb_state_receiving_response;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
@@ -1051,9 +1051,9 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
   }
   switch(zdb->state)
   {
-  case zlimdb_state_receiving_response:
+  case _zlimdb_state_receiving_response:
     break;
-  case zlimdb_state_received_response:
+  case _zlimdb_state_received_response:
     {
       struct _zlimdb_request_data* request = zdb->openRequest;
       for(struct _zlimdb_response_data* reponse = request->response, * next; reponse; reponse = next)
@@ -1064,7 +1064,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
       zdb->openRequest = request->next;
       free(request);
     }
-    zdb->state = zlimdb_state_connected;
+    zdb->state = _zlimdb_state_connected;
     zlimdbErrno = zlimdb_local_error_none;
     return -1;
   default:
@@ -1084,11 +1084,11 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
       {
         if(header->size != sizeof(zlimdb_error_response))
         {
-          zdb->state = zlimdb_state_error;
+          zdb->state = _zlimdb_state_error;
           zlimdbErrno = zlimdb_local_error_invalid_message_size;
           return -1;
         }
-        zdb->state = zlimdb_state_connected;
+        zdb->state = _zlimdb_state_connected;
         zlimdbErrno = ((const zlimdb_error_response*)header)->error;
         {
           struct _zlimdb_request_data* request = zdb->openRequest;
@@ -1108,7 +1108,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
         size_t dataSize = header->size - sizeof(header);
         if(dataSize < sizeof(uint16_t))
         {
-          zdb->state = zlimdb_state_error;
+          zdb->state = _zlimdb_state_error;
           zlimdbErrno = zlimdb_local_error_invalid_message_data;
           return -1;
         }
@@ -1117,20 +1117,20 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
         {
           if(rawDataSize > *size2)
           {
-            zdb->state = zlimdb_state_error;
+            zdb->state = _zlimdb_state_error;
             zlimdbErrno = zlimdb_local_error_buffer_size;
             return -1;
           }
           if(LZ4_decompress_safe((const char*)buffer + sizeof(uint16_t), (char*)data, dataSize - sizeof(uint16_t), rawDataSize) != rawDataSize)
           {
-            zdb->state = zlimdb_state_error;
+            zdb->state = _zlimdb_state_error;
             zlimdbErrno = zlimdb_local_error_invalid_message_data;
             return -1;
           }
         }
         *size2 = rawDataSize;
         if(!(header->flags & zlimdb_header_flag_fragmented))
-          zdb->state = zlimdb_state_received_response;
+          zdb->state = _zlimdb_state_received_response;
         response->next->last = response->last;
         request->response = response->next;
         free(response);
@@ -1142,14 +1142,14 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
         size_t dataSize = header->size - sizeof(*header);
         if(dataSize > *size2)
         {
-          zdb->state = zlimdb_state_error;
+          zdb->state = _zlimdb_state_error;
           zlimdbErrno = zlimdb_local_error_buffer_size;
           return -1;
         }
         memcpy(data, header + 1, dataSize);
         *size2 = dataSize;
         if(!(header->flags & zlimdb_header_flag_fragmented))
-          zdb->state = zlimdb_state_received_response;
+          zdb->state = _zlimdb_state_received_response;
         response->next->last = response->last;
         request->response = response->next;
         free(response);
@@ -1169,7 +1169,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
       {
         if(header.message_type == zlimdb_message_error_response)
         {
-          zdb->state = zlimdb_state_connected;
+          zdb->state = _zlimdb_state_connected;
           if(zlimdb_receiveResponseMessageData(zdb, &header, data, maxSize2) != 0)
             return -1;
           zlimdbErrno = zlimdb_local_error_none;
@@ -1180,7 +1180,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
           size_t dataSize = header.size - sizeof(header);
           if(dataSize < sizeof(uint16_t))
           {
-            zdb->state = zlimdb_state_error;
+            zdb->state = _zlimdb_state_error;
             zlimdbErrno = zlimdb_local_error_invalid_message_data;
             return -1;
           }
@@ -1192,13 +1192,13 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
           {
             if(rawDataSize > maxSize2)
             {
-              zdb->state = zlimdb_state_error;
+              zdb->state = _zlimdb_state_error;
               zlimdbErrno = zlimdb_local_error_buffer_size;
               return -1;
             }
             if(LZ4_decompress_safe((char*)buffer + sizeof(uint16_t), (char*)data, dataSize - sizeof(uint16_t), rawDataSize) != rawDataSize)
             {
-              zdb->state = zlimdb_state_error;
+              zdb->state = _zlimdb_state_error;
               zlimdbErrno = zlimdb_local_error_invalid_message_data;
               return -1;
             }
@@ -1212,7 +1212,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
           *size2 = header.size - sizeof(header);
         }
         if(!(header.flags & zlimdb_header_flag_fragmented))
-          zdb->state = zlimdb_state_received_response;
+          zdb->state = _zlimdb_state_received_response;
         zlimdbErrno = zlimdb_local_error_none;
         return 0;
       }
@@ -1222,7 +1222,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
         for(request = zdb->openRequest->next; request; request = request->next)
           if(request->requestId == header.request_id)
             goto receiveResponse;
-        zdb->state = zlimdb_state_error;
+        zdb->state = _zlimdb_state_error;
         zlimdbErrno = zlimdb_local_error_invalid_response;
         return -1;
       receiveResponse: ;
@@ -1230,7 +1230,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
         struct _zlimdb_response_data* response = malloc(sizeof(struct _zlimdb_response_data) + header.size);
         if(!response)
         {
-          zdb->state = zlimdb_state_error;
+          zdb->state = _zlimdb_state_error;
           zlimdbErrno = zlimdb_local_error_system;
           return -1;
         }
@@ -1286,7 +1286,7 @@ int zlimdb_unsubscribe(zlimdb* zdb, uint32_t table_id)
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -1318,7 +1318,7 @@ int zlimdb_sync(zlimdb* zdb, uint32_t table_id, int64_t* server_time, int64_t* t
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -1354,7 +1354,7 @@ int zlimdb_control(zlimdb* zdb, uint32_t table_id, uint64_t entity_id, uint32_t 
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -1385,7 +1385,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     zlimdbErrno = zlimdb_local_error_invalid_parameter;
     return -1;
   }
-  if(zdb->state != zlimdb_state_connected)
+  if(zdb->state != _zlimdb_state_connected)
   {
     zlimdbErrno = zlimdb_local_error_state;
     return -1;
@@ -1400,7 +1400,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     {
       if(WSAEventSelect(zdb->socket, zdb->hReadEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
       {
-        zdb->state = zlimdb_state_error;
+        zdb->state = _zlimdb_state_error;
         zlimdbErrno = zlimdb_local_error_system;
         return -1;
       }
@@ -1424,7 +1424,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     WSANETWORKEVENTS events;
     if(WSAEnumNetworkEvents(zdb->socket, zdb->hReadEvent, &events) == SOCKET_ERROR)
     {
-      zdb->state = zlimdb_state_error;
+      zdb->state = _zlimdb_state_error;
       zlimdbErrno = zlimdb_local_error_system;
       return -1;
     }
@@ -1445,7 +1445,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
       }
     }
     currentTick = GetTickCount();
-  } while(zdb->state == zlimdb_state_connected);
+  } while(zdb->state == _zlimdb_state_connected);
 #else
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -1486,7 +1486,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
       uint64_t val;
       if(read(zdb->interruptEventFd, &val, sizeof(val)) == -1)
       {
-        zdb->state = zlimdb_state_error;
+        zdb->state = _zlimdb_state_error;
         zlimdbErrno = zlimdb_local_error_system;
         return -1;
       }
