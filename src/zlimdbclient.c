@@ -42,8 +42,6 @@ typedef enum
 {
   _zlimdb_state_disconnected,
   _zlimdb_state_connected,
-  _zlimdb_state_receiving_response,
-  _zlimdb_state_received_response,
   _zlimdb_state_error,
 } _zlimdb_state;
 
@@ -54,10 +52,18 @@ struct _zlimdb_responseData_
   _zlimdb_responseData* last;
 };
 
+typedef enum
+{
+  _zlimdb_requestState_receiving,
+  _zlimdb_requestState_finished,
+  _zlimdb_requestState_internal,
+} _zlimdb_requestState;
+
 typedef struct _zlimdb_requestData_ _zlimdb_requestData;
 struct _zlimdb_requestData_
 {
   uint32_t requestId;
+  _zlimdb_requestState state;
   _zlimdb_responseData* response;
   _zlimdb_requestData* next;
 };
@@ -354,6 +360,7 @@ static int _zlimdb_receiveResponse(zlimdb* zdb, uint32_t requestId, void* messag
         request.requestId = requestId;
         request.response = 0;
         request.next = zdb->openRequest;
+        request.state = _zlimdb_requestState_internal;
         zdb->openRequest = &request;
         zdb->callback(zdb->userData, (zlimdb_header*)buffer);
         zdb->openRequest = request.next;
@@ -970,6 +977,7 @@ int zlimdb_query(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t
   requestData->next = zdb->openRequest;
   requestData->requestId = ++zdb->lastRequestId << 1 | 1;
   requestData->response = 0;
+  requestData->state = _zlimdb_requestState_receiving;
   zdb->openRequest = requestData;
 
   // create message
@@ -989,7 +997,6 @@ int zlimdb_query(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t
     return -1;
   }
 
-  zdb->state = _zlimdb_state_receiving_response;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
@@ -1000,13 +1007,16 @@ int zlimdb_query_entity(zlimdb* zdb, uint32_t tableId, uint64_t entityId, void* 
     return -1;
   if(zlimdb_get_response(zdb, data, size) != 0)
     return -1;
-  if(zdb->state != _zlimdb_state_received_response)
+  if(zdb->openRequest->state != _zlimdb_requestState_finished)
   {
     zdb->state = _zlimdb_state_error;
     zlimdbErrno = zlimdb_local_error_invalid_response;
     return -1;
   }
-  zdb->state = _zlimdb_state_connected;
+  _zlimdb_requestData* request = zdb->openRequest;
+  zdb->openRequest = request->next;
+  _zlimdb_freeReponses(request->response);
+  free(request);
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
@@ -1034,6 +1044,7 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint
   requestData->next = zdb->openRequest;
   requestData->requestId = ++zdb->lastRequestId << 1 | 1;
   requestData->response = 0;
+  requestData->state = _zlimdb_requestState_receiving;
   zdb->openRequest = requestData;
 
   // create message
@@ -1053,7 +1064,6 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint
     return -1;
   }
 
-  zdb->state = _zlimdb_state_receiving_response;
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
 }
@@ -1062,22 +1072,24 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint
 int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
 {
   if(!zdb)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+  if(zdb->state != _zlimdb_state_connected)
+    return zlimdbErrno = zlimdb_local_error_state, -1;
+
+  _zlimdb_requestData* request = zdb->openRequest;
+  if(!request)
+    return zlimdbErrno = zlimdb_local_error_state, -1;
+
+  switch(request->state)
   {
-    zlimdbErrno = zlimdb_local_error_invalid_parameter;
-    return -1;
-  }
-  switch(zdb->state)
-  {
-  case _zlimdb_state_receiving_response:
+  case _zlimdb_requestState_receiving:
     break;
-  case _zlimdb_state_received_response:
+  case _zlimdb_requestState_finished:
     {
-      _zlimdb_requestData* request = zdb->openRequest;
       _zlimdb_freeReponses(request->response);
       zdb->openRequest = request->next;
       free(request);
     }
-    zdb->state = _zlimdb_state_connected;
     zlimdbErrno = zlimdb_local_error_none;
     return -1;
   default:
@@ -1088,7 +1100,6 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
   for(;;)
   {
     // return already received response
-    _zlimdb_requestData* request = zdb->openRequest;
     _zlimdb_responseData* response = request->response;
     if(response)
     {
@@ -1144,7 +1155,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
         *size = dataSize;
       }
       if(!(header->flags & zlimdb_header_flag_fragmented))
-        zdb->state = _zlimdb_state_received_response;
+        request->state = _zlimdb_requestState_finished;
       request->response = response->next;
       if(response->next)
         response->next->last = response->last;
@@ -1205,7 +1216,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
           *size = header.size - sizeof(zlimdb_header);
         }
         if(!(header.flags & zlimdb_header_flag_fragmented))
-          zdb->state = _zlimdb_state_received_response;
+          request->state = _zlimdb_requestState_finished;
         zlimdbErrno = zlimdb_local_error_none;
         return 0;
       }
