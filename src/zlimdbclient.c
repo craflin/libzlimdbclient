@@ -149,7 +149,6 @@ static int _zlimdb_receiveData(zlimdb* zdb, void* data, size_t size)
 {
   assert(zdb);
   assert(data);
-  assert(size > 0);
 
   unsigned int receivedSize = 0;
   while(receivedSize < size)
@@ -208,6 +207,10 @@ static int _zlimdb_receiveHeader(zlimdb* zdb, zlimdb_header* header)
 
 static int _zlimdb_receiveResponseMessageData(zlimdb* zdb, const zlimdb_header* header, void* data, size_t size)
 {
+  assert(zdb);
+  assert(header);
+  assert(data);
+
   if(header->message_type == zlimdb_message_error_response)
   {
     if(header->size != sizeof(zlimdb_error_response))
@@ -223,19 +226,26 @@ static int _zlimdb_receiveResponseMessageData(zlimdb* zdb, const zlimdb_header* 
     return -1;
   }
   size_t dataSize = header->size - sizeof(*header);
-  if(dataSize > size)
+  if(dataSize > 0)
   {
-    zdb->state = _zlimdb_state_error;
-    zlimdbErrno = zlimdb_local_error_buffer_size;
-    return -1;
+    if(dataSize > size)
+    {
+      zdb->state = _zlimdb_state_error;
+      zlimdbErrno = zlimdb_local_error_buffer_size;
+      return -1;
+    }
+    if(_zlimdb_receiveData(zdb, data, dataSize) != 0)
+      return -1;
   }
-  if(_zlimdb_receiveData(zdb, data, dataSize) != 0)
-    return -1;
   return 0;
 }
 
 static int _zlimdb_copyResponseMessage(zlimdb* zdb, const _zlimdb_response_data* response, void* data, size_t size)
 {
+  assert(zdb);
+  assert(response);
+  assert(data);
+
   const zlimdb_header* header = (const zlimdb_header*)(response + 1);
   if(header->message_type == zlimdb_message_error_response)
   {
@@ -259,10 +269,13 @@ static int _zlimdb_copyResponseMessage(zlimdb* zdb, const _zlimdb_response_data*
   return 0;
 }
 
-static int _zlimdb_receiveLoginResponse(zlimdb* zdb, void* buffer, size_t size)
+static int _zlimdb_receiveLoginResponse(zlimdb* zdb, void* message, size_t size)
 {
+  assert(zdb);
+  assert(message);
   assert(size >= sizeof(zlimdb_header));
-  zlimdb_header* header = buffer;
+
+  zlimdb_header* header = message;
   if(_zlimdb_receiveHeader(zdb, header) != 0)
     return -1;
   if(header->request_id != 1)
@@ -271,7 +284,7 @@ static int _zlimdb_receiveLoginResponse(zlimdb* zdb, void* buffer, size_t size)
     zlimdbErrno = zlimdb_local_error_invalid_response;
     return -1;
   }
-  if(_zlimdb_receiveResponseMessageData(zdb, header, (char*)buffer + sizeof(*header), size - sizeof(*header)) != 0)
+  if(_zlimdb_receiveResponseMessageData(zdb, header, header + 1, size - sizeof(*header)) != 0)
     return -1;
   return 0;
 }
