@@ -85,14 +85,7 @@ static int __thread zlimdbErrno = zlimdb_local_error_none;
 
 static volatile long zlimdbInitCalls = 0;
 
-int zlimdb_sendRequestWithRequestId(zlimdb* zdb, zlimdb_header* header); // todo: rename to zlimdb_sendRequestWithRequestId
-int zlimdb_receiveLoginResponse(zlimdb* zdb, void* buffer, size_t size);
-int zlimdb_receiveHeader(zlimdb* zdb, zlimdb_header* header);
-int zlimdb_receiveData(zlimdb* zdb, void* data, size_t size);
-int zlimdb_receiveResponseMessageData(zlimdb* zdb, const zlimdb_header* header, void* data, size_t size);
-int zlimdb_receiveResponseOrMessage(zlimdb* zdb, uint32_t requestId, void* buffer, size_t size);
-
-void zlimdb_freeReponses(struct _zlimdb_response_data* response)
+static void zlimdb_freeReponses(struct _zlimdb_response_data* response)
 {
   for(struct _zlimdb_response_data* next; response; response = next)
   {
@@ -100,6 +93,266 @@ void zlimdb_freeReponses(struct _zlimdb_response_data* response)
     free(response);
   }
 }
+
+static int zlimdb_sendRequest(zlimdb* zdb, zlimdb_header* header)
+{
+  assert(zdb);
+  assert(header->size >= sizeof(*header));
+
+  header->flags = 0;
+
+#ifdef _WIN32
+  unsigned int sentSize = 0;
+  do
+  {
+    int res = send(zdb->socket, (const char*)header + sentSize, header->size - sentSize, 0);
+    if(res < 0)
+    {
+      if(ERRNO == WSAEWOULDBLOCK)
+      {
+        if(zdb->selectedEvents)
+        {
+          WSAEventSelect(zdb->socket, zdb->hReadEvent, 0);
+          zdb->selectedEvents = 0;
+        }
+        u_long val = 0;
+        if(ioctlsocket(zdb->socket, FIONBIO, &val) != 0)
+        {
+          zdb->state = zlimdb_state_error;
+          zlimdbErrno = zlimdb_local_error_system;
+          return -1;
+        }
+        continue;
+      }
+      zdb->state = zlimdb_state_error;
+      zlimdbErrno = zlimdb_local_error_system;
+      return -1;
+    }
+    sentSize += res;
+  } while(sentSize < header->size);
+#else
+  int res = send(zdb->socket, (const char*)header, header->size, 0);
+  if(res < 0)
+  {
+    zdb->state = zlimdb_state_error;
+    zlimdbErrno = zlimdb_local_error_system;
+    return -1;
+  }
+  assert(res == header->size);
+#endif
+  return 0;
+}
+
+static int zlimdb_receiveData(zlimdb* zdb, void* data, size_t size)
+{
+  assert(zdb);
+  assert(data);
+  assert(size > 0);
+
+  unsigned int receivedSize = 0;
+  while(receivedSize < size)
+  {
+    int res = recv(zdb->socket, (char*)data + receivedSize, size - receivedSize, 0);
+    if(res == 0)
+    {
+      zdb->state = zlimdb_state_error;
+      zlimdbErrno = zlimdb_local_error_connection_closed;
+      return -1;
+    }
+    else if(res < 0)
+    {
+#ifdef _WIN32
+      if(ERRNO == WSAEWOULDBLOCK)
+      {
+        if(zdb->selectedEvents)
+        {
+          WSAEventSelect(zdb->socket, zdb->hReadEvent, 0);
+          zdb->selectedEvents = 0;
+        }
+        u_long val = 0;
+        if(ioctlsocket(zdb->socket, FIONBIO, &val) != 0)
+        {
+          zdb->state = zlimdb_state_error;
+          zlimdbErrno = zlimdb_local_error_system;
+          return -1;
+        }
+        continue;
+      }
+#endif
+      zdb->state = zlimdb_state_error;
+      zlimdbErrno = zlimdb_local_error_system;
+      return -1;
+    }
+    receivedSize += res;
+  }
+  return 0;
+}
+
+static int zlimdb_receiveHeader(zlimdb* zdb, zlimdb_header* header)
+{
+  assert(zdb);
+  assert(header);
+
+  if(zlimdb_receiveData(zdb, header, sizeof(*header)) != 0)
+    return -1;
+  if(header->size < sizeof(zlimdb_header))
+  {
+    zdb->state = zlimdb_state_error;
+    zlimdbErrno = zlimdb_local_error_invalid_message_size;
+    return -1;
+  }
+  return 0;
+}
+
+static int zlimdb_receiveResponseMessageData(zlimdb* zdb, const zlimdb_header* header, void* data, size_t size)
+{
+  if(header->message_type == zlimdb_message_error_response)
+  {
+    if(header->size != sizeof(zlimdb_error_response))
+    {
+      zdb->state = zlimdb_state_error;
+      zlimdbErrno = zlimdb_local_error_invalid_message_size;
+      return -1;
+    }
+    zlimdb_error_response errorResponse;
+    if(zlimdb_receiveData(zdb, (char*)&errorResponse + sizeof(*header), sizeof(errorResponse) - sizeof(*header)) != 0)
+      return -1;
+    zlimdbErrno = errorResponse.error;
+    return -1;
+  }
+  size_t dataSize = header->size - sizeof(*header);
+  if(dataSize > size)
+  {
+    zdb->state = zlimdb_state_error;
+    zlimdbErrno = zlimdb_local_error_buffer_size;
+    return -1;
+  }
+  if(zlimdb_receiveData(zdb, data, dataSize) != 0)
+    return -1;
+  return 0;
+}
+
+static int zlimdb_copyResponseMessage(zlimdb* zdb, const struct _zlimdb_response_data* response, void* data, size_t size)
+{
+  const zlimdb_header* header = (const zlimdb_header*)(response + 1);
+  if(header->message_type == zlimdb_message_error_response)
+  {
+    if(header->size != sizeof(zlimdb_error_response))
+    {
+      zdb->state = zlimdb_state_error;
+      zlimdbErrno = zlimdb_local_error_invalid_message_size;
+      return -1;
+    }
+    zlimdbErrno = ((const zlimdb_error_response*)header)->error;
+    return -1;
+  }
+  size_t dataSize = header->size - sizeof(*header);
+  if(dataSize > size)
+  {
+    zdb->state = zlimdb_state_error;
+    zlimdbErrno = zlimdb_local_error_buffer_size;
+    return -1;
+  }
+  memcpy(data, header + 1, dataSize);
+  return 0;
+}
+
+static int zlimdb_receiveLoginResponse(zlimdb* zdb, void* buffer, size_t size)
+{
+  assert(size >= sizeof(zlimdb_header));
+  zlimdb_header* header = buffer;
+  if(zlimdb_receiveHeader(zdb, header) != 0)
+    return -1;
+  if(header->request_id != 1)
+  {
+    zdb->state = zlimdb_state_error;
+    zlimdbErrno = zlimdb_local_error_invalid_response;
+    return -1;
+  }
+  if(zlimdb_receiveResponseMessageData(zdb, header, (char*)buffer + sizeof(*header), size - sizeof(*header)) != 0)
+    return -1;
+  return 0;
+}
+
+static int zlimdb_receiveResponseOrMessage(zlimdb* zdb, uint32_t requestId, void* message, size_t size)
+{
+  assert(zdb);
+  assert(requestId);
+  assert(message);
+  assert(size >= sizeof(zlimdb_header));
+
+  // receive new response
+  zlimdb_header* header = message;
+  for(;;)
+  {
+    if(zlimdb_receiveHeader(zdb, header) != 0)
+      return -1;
+    if(header->request_id == requestId)
+      return zlimdb_receiveResponseMessageData(zdb, header, header + 1, size - sizeof(*header));
+    else if(header->request_id)
+    {
+      struct _zlimdb_request_data* request;
+      for(request = zdb->openRequest; request; request = request->next)
+        if(request->requestId == header->request_id)
+          goto receiveResponse;
+      zdb->state = zlimdb_state_error;
+      zlimdbErrno = zlimdb_local_error_invalid_response;
+      return -1;
+    receiveResponse: ;
+
+      struct _zlimdb_response_data* response = malloc(sizeof(struct _zlimdb_response_data) + header->size);
+      if(!response)
+      {
+        zdb->state = zlimdb_state_error;
+        zlimdbErrno = zlimdb_local_error_system;
+        return -1;
+      }
+      void* buffer = response + 1;
+      if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(*header), header->size - sizeof(*header)) != 0)
+          return -1;
+      *(zlimdb_header*)buffer = *header;
+      response->next = 0;
+      if(request->response)
+      {
+        request->response->last = response;
+        request->response->last->next = response;
+      }
+      else
+      {
+        request->response = response;
+        response->last = response;
+      }
+
+    }
+    else
+    {
+      void* buffer = alloca(header->size);
+      if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(*header), header->size - sizeof(*header)) != 0)
+          return -1; 
+      if(zdb->callback)
+      {
+        *(zlimdb_header*)buffer =* header;
+
+        struct _zlimdb_request_data request;
+        request.requestId = requestId;
+        request.response = 0;
+        request.next = zdb->openRequest;
+        zdb->openRequest = &request;
+        zdb->callback(zdb->userData, (zlimdb_header*)buffer);
+        zdb->openRequest = request.next;
+
+        if(request.response)
+        {
+          if(!zlimdb_copyResponseMessage(zdb, request.response, message, size));
+            return -1;
+          zlimdb_freeReponses(request.response);
+          return 0;
+        }
+      }
+    }
+  }
+}
+
 
 int zlimdb_init()
 {
@@ -270,7 +523,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
   loginRequest->header.request_id = 1;
   loginRequest->user_name_size = usernameLen;
   memcpy(loginRequest + 1, user_name, usernameLen);
-  if(zlimdb_sendRequestWithRequestId(zdb, &loginRequest->header) != 0)
+  if(zlimdb_sendRequest(zdb, &loginRequest->header) != 0)
   {
     int err = ERRNO;
     CLOSE(zdb->socket);
@@ -299,7 +552,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
   uint8_t pwHash[32];
   sha256_hmac(loginResponse.pw_salt, sizeof(loginResponse.pw_salt), (const uint8_t*)password, passwordLen , pwHash);
   sha256_hmac(loginResponse.auth_salt, sizeof(loginResponse.auth_salt), pwHash, sizeof(pwHash), authRequest.signature);
-  if(zlimdb_sendRequestWithRequestId(zdb, &authRequest.header) != 0)
+  if(zlimdb_sendRequest(zdb, &authRequest.header) != 0)
   {
     int err = ERRNO;
     CLOSE(zdb->socket);
@@ -414,7 +667,7 @@ int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* table_id)
   memcpy(tableEntity + 1, name, nameLen);
 
   // send message
-  if(zlimdb_sendRequestWithRequestId(zdb, &addRequest->header) != 0)
+  if(zlimdb_sendRequest(zdb, &addRequest->header) != 0)
     return -1;
 
   // receive response
@@ -456,7 +709,7 @@ int zlimdb_find_table(zlimdb* zdb, const char* name, uint32_t* table_id)
   memcpy(tableEntity + 1, name, nameLen);
 
   // send message
-  if(zlimdb_sendRequestWithRequestId(zdb, &findRequest->header) != 0)
+  if(zlimdb_sendRequest(zdb, &findRequest->header) != 0)
     return -1;
 
   // receive response
@@ -498,7 +751,7 @@ int zlimdb_copy_table(zlimdb* zdb, uint32_t table_id, const char* new_name, uint
   memcpy(tableEntity + 1, new_name, nameLen);
 
   // send message
-  if(zlimdb_sendRequestWithRequestId(zdb, &copyRequest->header) != 0)
+  if(zlimdb_sendRequest(zdb, &copyRequest->header) != 0)
     return -1;
 
   // receive response
@@ -566,7 +819,7 @@ int zlimdb_add(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data, uint64
   memcpy(addRequest + 1, data, data->size);
 
   // send message
-  if(zlimdb_sendRequestWithRequestId(zdb, &addRequest->header) != 0)
+  if(zlimdb_sendRequest(zdb, &addRequest->header) != 0)
     return -1;
 
   // receive response
@@ -601,7 +854,7 @@ int zlimdb_update(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data)
   memcpy(updateRequest + 1, data, data->size);
 
   // send message
-  if(zlimdb_sendRequestWithRequestId(zdb, &updateRequest->header) != 0)
+  if(zlimdb_sendRequest(zdb, &updateRequest->header) != 0)
     return -1;
 
   // receive response
@@ -634,7 +887,7 @@ int zlimdb_remove(zlimdb* zdb, uint32_t table_id, uint64_t entity_id)
   removeRequest.id = entity_id;
 
   // send message
-  if(zlimdb_sendRequestWithRequestId(zdb, &removeRequest.header) != 0)
+  if(zlimdb_sendRequest(zdb, &removeRequest.header) != 0)
     return -1;
 
   // receive response
@@ -666,7 +919,7 @@ int zlimdb_clear(zlimdb* zdb, uint32_t table_id)
   clearRequest.table_id = table_id;
 
   // send message
-  if(zlimdb_sendRequestWithRequestId(zdb, &clearRequest.header) != 0)
+  if(zlimdb_sendRequest(zdb, &clearRequest.header) != 0)
     return -1;
 
   // receive response
@@ -712,7 +965,7 @@ int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_
   queryRequest.param = param;
 
   // send message
-  if(zlimdb_sendRequestWithRequestId(zdb, &queryRequest.header) != 0)
+  if(zlimdb_sendRequest(zdb, &queryRequest.header) != 0)
   {
     zdb->openRequest = requestData->next;
     free(requestData);
@@ -776,7 +1029,7 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uin
   subscribeRequest.param = param;
 
   // send message
-  if(zlimdb_sendRequestWithRequestId(zdb, &subscribeRequest.header) != 0)
+  if(zlimdb_sendRequest(zdb, &subscribeRequest.header) != 0)
   {
     zdb->openRequest = requestData->next;
     free(requestData);
@@ -1047,7 +1300,7 @@ int zlimdb_unsubscribe(zlimdb* zdb, uint32_t table_id)
   unsubscribeRequest.table_id = table_id;
 
   // send message
-  if(zlimdb_sendRequestWithRequestId(zdb, &unsubscribeRequest.header) != 0)
+  if(zlimdb_sendRequest(zdb, &unsubscribeRequest.header) != 0)
     return -1;
 
   // receive response
@@ -1079,7 +1332,7 @@ int zlimdb_sync(zlimdb* zdb, uint32_t table_id, int64_t* server_time, int64_t* t
   syncRequest.table_id = table_id;
 
   // send message
-  if(zlimdb_sendRequestWithRequestId(zdb, &syncRequest.header) != 0)
+  if(zlimdb_sendRequest(zdb, &syncRequest.header) != 0)
     return -1;
 
   // receive response
@@ -1118,7 +1371,7 @@ int zlimdb_control(zlimdb* zdb, uint32_t table_id, uint64_t entity_id, uint32_t 
   memcpy(controlRequest + 1, data, size);
 
   // send message
-  if(zlimdb_sendRequestWithRequestId(zdb, &controlRequest->header) != 0)
+  if(zlimdb_sendRequest(zdb, &controlRequest->header) != 0)
     return -1;
 
   zlimdbErrno = zlimdb_local_error_none;
@@ -1275,244 +1528,4 @@ int zlimdb_interrupt(zlimdb* zdb)
 #endif
   zlimdbErrno = zlimdb_local_error_none;
   return 0;
-}
-
-int zlimdb_sendRequestWithRequestId(zlimdb* zdb, zlimdb_header* header)
-{
-  header->flags = 0;
-  assert(header->size >= sizeof(*header));
-  unsigned int sentSize = 0;
-  do
-  {
-    int res = send(zdb->socket, (const char*)header + sentSize, header->size - sentSize, 0);
-    if(res < 0)
-    {
-#ifdef _WIN32
-      if(ERRNO == WSAEWOULDBLOCK)
-      {
-        if(zdb->selectedEvents)
-        {
-          WSAEventSelect(zdb->socket, zdb->hReadEvent, 0);
-          zdb->selectedEvents = 0;
-        }
-        u_long val = 0;
-        if(ioctlsocket(zdb->socket, FIONBIO, &val) != 0)
-        {
-          zdb->state = zlimdb_state_error;
-          zlimdbErrno = zlimdb_local_error_system;
-          return -1;
-        }
-        continue;
-      }
-#endif
-      zdb->state = zlimdb_state_error;
-      zlimdbErrno = zlimdb_local_error_system;
-      return -1;
-    }
-    sentSize += res;
-  } while(sentSize < header->size);
-  return 0;
-}
-
-int zlimdb_receiveHeader(zlimdb* zdb, zlimdb_header* header)
-{
-  if(zlimdb_receiveData(zdb, header, sizeof(*header)) != 0)
-    return -1;
-  if(header->size < sizeof(zlimdb_header))
-  {
-    zdb->state = zlimdb_state_error;
-    zlimdbErrno = zlimdb_local_error_invalid_message_size;
-    return -1;
-  }
-  return 0;
-}
-
-int zlimdb_receiveData(zlimdb* zdb, void* data, size_t size)
-{
-  unsigned int receivedSize = 0;
-  while(receivedSize < size)
-  {
-    int res = recv(zdb->socket, (char*)data + receivedSize, size - receivedSize, 0);
-    if(res == 0)
-    {
-      zdb->state = zlimdb_state_error;
-      zlimdbErrno = zlimdb_local_error_connection_closed;
-      return -1;
-    }
-    else if(res < 0)
-    {
-#ifdef _WIN32
-      if(ERRNO == WSAEWOULDBLOCK)
-      {
-        if(zdb->selectedEvents)
-        {
-          WSAEventSelect(zdb->socket, zdb->hReadEvent, 0);
-          zdb->selectedEvents = 0;
-        }
-        u_long val = 0;
-        if(ioctlsocket(zdb->socket, FIONBIO, &val) != 0)
-        {
-          zdb->state = zlimdb_state_error;
-          zlimdbErrno = zlimdb_local_error_system;
-          return -1;
-        }
-        continue;
-      }
-#endif
-      zdb->state = zlimdb_state_error;
-      zlimdbErrno = zlimdb_local_error_system;
-      return -1;
-    }
-    receivedSize += res;
-  }
-  return 0;
-}
-
-int zlimdb_receiveResponseMessageData(zlimdb* zdb, const zlimdb_header* header, void* data, size_t size)
-{
-  if(header->message_type == zlimdb_message_error_response)
-  {
-    if(header->size != sizeof(zlimdb_error_response))
-    {
-      zdb->state = zlimdb_state_error;
-      zlimdbErrno = zlimdb_local_error_invalid_message_size;
-      return -1;
-    }
-    zlimdb_error_response errorResponse;
-    if(zlimdb_receiveData(zdb, (char*)&errorResponse + sizeof(*header), sizeof(errorResponse) - sizeof(*header)) != 0)
-      return -1;
-    zlimdbErrno = errorResponse.error;
-    return -1;
-  }
-  size_t dataSize = header->size - sizeof(*header);
-  if(dataSize > size)
-  {
-    zdb->state = zlimdb_state_error;
-    zlimdbErrno = zlimdb_local_error_buffer_size;
-    return -1;
-  }
-  if(zlimdb_receiveData(zdb, data, dataSize) != 0)
-    return -1;
-  return 0;
-}
-
-int zlimdb_copyResponseMessage(zlimdb* zdb, const struct _zlimdb_response_data* response, void* data, size_t size)
-{
-  const zlimdb_header* header = (const zlimdb_header*)(response + 1);
-  if(header->message_type == zlimdb_message_error_response)
-  {
-    if(header->size != sizeof(zlimdb_error_response))
-    {
-      zdb->state = zlimdb_state_error;
-      zlimdbErrno = zlimdb_local_error_invalid_message_size;
-      return -1;
-    }
-    zlimdbErrno = ((const zlimdb_error_response*)header)->error;
-    return -1;
-  }
-  size_t dataSize = header->size - sizeof(*header);
-  if(dataSize > size)
-  {
-    zdb->state = zlimdb_state_error;
-    zlimdbErrno = zlimdb_local_error_buffer_size;
-    return -1;
-  }
-  memcpy(data, header + 1, dataSize);
-  return 0;
-}
-
-int zlimdb_receiveLoginResponse(zlimdb* zdb, void* buffer, size_t size)
-{
-  assert(size >= sizeof(zlimdb_header));
-  zlimdb_header* header = buffer;
-  if(zlimdb_receiveHeader(zdb, header) != 0)
-    return -1;
-  if(header->request_id != 1)
-  {
-    zdb->state = zlimdb_state_error;
-    zlimdbErrno = zlimdb_local_error_invalid_response;
-    return -1;
-  }
-  if(zlimdb_receiveResponseMessageData(zdb, header, (char*)buffer + sizeof(*header), size - sizeof(*header)) != 0)
-    return -1;
-  return 0;
-}
-
-int zlimdb_receiveResponseOrMessage(zlimdb* zdb, uint32_t requestId, void* message, size_t size)
-{
-  assert(zdb);
-  assert(requestId);
-  assert(message);
-  assert(size >= sizeof(zlimdb_header));
-
-  // receive new response
-  zlimdb_header* header = message;
-  for(;;)
-  {
-    if(zlimdb_receiveHeader(zdb, header) != 0)
-      return -1;
-    if(header->request_id == requestId)
-      return zlimdb_receiveResponseMessageData(zdb, header, header + 1, size - sizeof(*header));
-    else if(header->request_id)
-    {
-      struct _zlimdb_request_data* request;
-      for(request = zdb->openRequest; request; request = request->next)
-        if(request->requestId == header->request_id)
-          goto receiveResponse;
-      zdb->state = zlimdb_state_error;
-      zlimdbErrno = zlimdb_local_error_invalid_response;
-      return -1;
-    receiveResponse: ;
-
-      struct _zlimdb_response_data* response = malloc(sizeof(struct _zlimdb_response_data) + header->size);
-      if(!response)
-      {
-        zdb->state = zlimdb_state_error;
-        zlimdbErrno = zlimdb_local_error_system;
-        return -1;
-      }
-      void* buffer = response + 1;
-      if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(*header), header->size - sizeof(*header)) != 0)
-          return -1;
-      *(zlimdb_header*)buffer = *header;
-      response->next = 0;
-      if(request->response)
-      {
-        request->response->last = response;
-        request->response->last->next = response;
-      }
-      else
-      {
-        request->response = response;
-        response->last = response;
-      }
-
-    }
-    else
-    {
-      void* buffer = alloca(header->size);
-      if(zlimdb_receiveData(zdb, (char*)buffer + sizeof(*header), header->size - sizeof(*header)) != 0)
-          return -1; 
-      if(zdb->callback)
-      {
-        *(zlimdb_header*)buffer =* header;
-
-        struct _zlimdb_request_data request;
-        request.requestId = requestId;
-        request.response = 0;
-        request.next = zdb->openRequest;
-        zdb->openRequest = &request;
-        zdb->callback(zdb->userData, (zlimdb_header*)buffer);
-        zdb->openRequest = request.next;
-
-        if(request.response)
-        {
-          if(!zlimdb_copyResponseMessage(zdb, request.response, message, size));
-            return -1;
-          zlimdb_freeReponses(request.response);
-          return 0;
-        }
-      }
-    }
-  }
 }
