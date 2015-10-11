@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-typedef struct _zlimdb zlimdb;
+typedef struct _zlimdb_ zlimdb;
 
 typedef void (*zlimdb_callback)(void* user_data, const zlimdb_header* message);
 

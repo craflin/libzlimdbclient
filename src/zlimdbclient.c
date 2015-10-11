@@ -47,20 +47,22 @@ typedef enum
   _zlimdb_state_error,
 } _zlimdb_state;
 
-struct _zlimdb_response_data
+typedef struct _zlimdb_response_data_ _zlimdb_response_data;
+struct _zlimdb_response_data_
 {
-  struct _zlimdb_response_data* next;
-  struct _zlimdb_response_data* last;
+  _zlimdb_response_data* next;
+  _zlimdb_response_data* last;
 };
 
-struct _zlimdb_request_data
+typedef struct _zlimdb_request_data_ _zlimdb_request_data;
+struct _zlimdb_request_data_
 {
   uint32_t requestId;
-  struct _zlimdb_response_data* response;
-  struct _zlimdb_request_data* next;
+  _zlimdb_response_data* response;
+  _zlimdb_request_data* next;
 };
 
-struct _zlimdb
+struct _zlimdb_
 {
   _zlimdb_state state;
   SOCKET socket;
@@ -74,7 +76,7 @@ struct _zlimdb
   zlimdb_callback callback;
   void* userData;
   uint32_t lastRequestId;
-  struct _zlimdb_request_data* openRequest;
+  _zlimdb_request_data* openRequest;
 };
 
 #ifdef _MSC_VER
@@ -85,9 +87,9 @@ static int __thread zlimdbErrno = zlimdb_local_error_none;
 
 static volatile long zlimdbInitCalls = 0;
 
-static void zlimdb_freeReponses(struct _zlimdb_response_data* response)
+static void zlimdb_freeReponses(_zlimdb_response_data* response)
 {
-  for(struct _zlimdb_response_data* next; response; response = next)
+  for(_zlimdb_response_data* next; response; response = next)
   {
     next = response->next;
     free(response);
@@ -232,7 +234,7 @@ static int zlimdb_receiveResponseMessageData(zlimdb* zdb, const zlimdb_header* h
   return 0;
 }
 
-static int zlimdb_copyResponseMessage(zlimdb* zdb, const struct _zlimdb_response_data* response, void* data, size_t size)
+static int zlimdb_copyResponseMessage(zlimdb* zdb, const _zlimdb_response_data* response, void* data, size_t size)
 {
   const zlimdb_header* header = (const zlimdb_header*)(response + 1);
   if(header->message_type == zlimdb_message_error_response)
@@ -291,7 +293,7 @@ static int zlimdb_receiveResponseOrMessage(zlimdb* zdb, uint32_t requestId, void
       return zlimdb_receiveResponseMessageData(zdb, header, header + 1, size - sizeof(*header));
     else if(header->request_id)
     {
-      struct _zlimdb_request_data* request;
+      _zlimdb_request_data* request;
       for(request = zdb->openRequest; request; request = request->next)
         if(request->requestId == header->request_id)
           goto receiveResponse;
@@ -300,7 +302,7 @@ static int zlimdb_receiveResponseOrMessage(zlimdb* zdb, uint32_t requestId, void
       return -1;
     receiveResponse: ;
 
-      struct _zlimdb_response_data* response = malloc(sizeof(struct _zlimdb_response_data) + header->size);
+      _zlimdb_response_data* response = malloc(sizeof(_zlimdb_response_data) + header->size);
       if(!response)
       {
         zdb->state = _zlimdb_state_error;
@@ -333,7 +335,7 @@ static int zlimdb_receiveResponseOrMessage(zlimdb* zdb, uint32_t requestId, void
       {
         *(zlimdb_header*)buffer =* header;
 
-        struct _zlimdb_request_data request;
+        _zlimdb_request_data request;
         request.requestId = requestId;
         request.response = 0;
         request.next = zdb->openRequest;
@@ -453,14 +455,10 @@ int zlimdb_free(zlimdb* zdb)
     CLOSE(zdb->interruptEventFd);
 #endif
   {
-    for(struct _zlimdb_request_data* i = zdb->openRequest, * next; i; i = next)
+    for(_zlimdb_request_data* i = zdb->openRequest, * next; i; i = next)
     {
       next = i->next;
-      for(struct _zlimdb_response_data* j = i->response, * next; j; j = next)
-      {
-          next = j->next;
-          free(j);
-      }
+      zlimdb_freeReponses(i->response);
       free(i);
     }
   }
@@ -944,7 +942,7 @@ int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_
   }
 
   // create request data
-  struct _zlimdb_request_data* requestData = malloc(sizeof(struct _zlimdb_request_data)); 
+  _zlimdb_request_data* requestData = malloc(sizeof(_zlimdb_request_data)); 
   if(!requestData)
   {
     zlimdbErrno = zlimdb_local_error_system;
@@ -1008,7 +1006,7 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uin
   }
 
   // create request data
-  struct _zlimdb_request_data* requestData = malloc(sizeof(struct _zlimdb_request_data)); 
+  _zlimdb_request_data* requestData = malloc(sizeof(_zlimdb_request_data)); 
   if(!requestData)
   {
     zlimdbErrno = zlimdb_local_error_system;
@@ -1055,8 +1053,8 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
     break;
   case _zlimdb_state_received_response:
     {
-      struct _zlimdb_request_data* request = zdb->openRequest;
-      for(struct _zlimdb_response_data* reponse = request->response, * next; reponse; reponse = next)
+      _zlimdb_request_data* request = zdb->openRequest;
+      for(_zlimdb_response_data* reponse = request->response, * next; reponse; reponse = next)
       {
         next = reponse->next;
         free(reponse);
@@ -1075,8 +1073,8 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
   for(;;)
   {
     // return already received response
-    struct _zlimdb_request_data* request = zdb->openRequest;
-    struct _zlimdb_response_data* response = request->response;
+    _zlimdb_request_data* request = zdb->openRequest;
+    _zlimdb_response_data* response = request->response;
     if(response)
     {
       const zlimdb_header* header = (const zlimdb_header*)(response + 1);
@@ -1091,8 +1089,8 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
         zdb->state = _zlimdb_state_connected;
         zlimdbErrno = ((const zlimdb_error_response*)header)->error;
         {
-          struct _zlimdb_request_data* request = zdb->openRequest;
-          for(struct _zlimdb_response_data* reponse = request->response, * next; reponse; reponse = next)
+          _zlimdb_request_data* request = zdb->openRequest;
+          for(_zlimdb_response_data* reponse = request->response, * next; reponse; reponse = next)
           {
             next = reponse->next;
             free(reponse);
@@ -1218,7 +1216,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
       }
       else if(header.request_id)
       {
-        struct _zlimdb_request_data* request;
+        _zlimdb_request_data* request;
         for(request = zdb->openRequest->next; request; request = request->next)
           if(request->requestId == header.request_id)
             goto receiveResponse;
@@ -1227,7 +1225,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size2)
         return -1;
       receiveResponse: ;
 
-        struct _zlimdb_response_data* response = malloc(sizeof(struct _zlimdb_response_data) + header.size);
+        _zlimdb_response_data* response = malloc(sizeof(_zlimdb_response_data) + header.size);
         if(!response)
         {
           zdb->state = _zlimdb_state_error;
