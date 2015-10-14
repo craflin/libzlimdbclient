@@ -198,7 +198,7 @@ static int _zlimdb_receiveHeader(zlimdb* zdb, zlimdb_header* header)
   if(header->size < sizeof(zlimdb_header))
   {
     zdb->state = _zlimdb_state_error;
-    return zlimdbErrno = zlimdb_local_error_invalid_message_size, -1;
+    return zlimdbErrno = zlimdb_local_error_invalid_message_data, -1;
   }
   return 0;
 }
@@ -214,8 +214,7 @@ static int _zlimdb_receiveResponseData(zlimdb* zdb, const zlimdb_header* header,
     if(header->size != sizeof(zlimdb_error_response))
     {
       zdb->state = _zlimdb_state_error;
-      zlimdbErrno = zlimdb_local_error_invalid_message_size;
-      return -1;
+      return zlimdbErrno = zlimdb_local_error_invalid_message_data, -1;
     }
     zlimdb_error_response errorResponse;
     if(_zlimdb_receiveData(zdb, &errorResponse.header + 1, sizeof(errorResponse) - sizeof(zlimdb_header)) != 0)
@@ -248,7 +247,7 @@ static int _zlimdb_copyResponseData(zlimdb* zdb, const _zlimdb_responseData* res
     if(header->size != sizeof(zlimdb_error_response))
     {
       zdb->state = _zlimdb_state_error;
-      return zlimdbErrno = zlimdb_local_error_invalid_message_size, -1;
+      return zlimdbErrno = zlimdb_local_error_invalid_message_data, -1;
     }
     return zlimdbErrno = ((const zlimdb_error_response*)header)->error, -1;
   }
@@ -605,14 +604,13 @@ const char* zlimdb_strerror(int errnum)
   case zlimdb_local_error_resolve: return "Hostname could not be resolved";
   case zlimdb_local_error_interrupted: return "Operation was interruped";
   case zlimdb_local_error_timeout: return "Operation has timed out";
-  case zlimdb_local_error_invalid_message_size: return "Received invalid message size";
   case zlimdb_local_error_invalid_message_data: return "Received invalid message data";
   case zlimdb_local_error_invalid_response: return "Received invalid response";
   case zlimdb_local_error_buffer_size: return "Buffer was too small";
   case zlimdb_local_error_connection_closed: return "Connection was closed";
 
   // client protocol errors:
-  case zlimdb_error_invalid_message_size: return "Invalid message size";
+  case zlimdb_error_invalid_message_data: return "Invalid message data";
   case zlimdb_error_invalid_message_type: return "invalid message type";
   case zlimdb_error_entity_not_found: return "Entity not found";
   case zlimdb_error_table_not_found: return "Table not found";
@@ -623,7 +621,6 @@ const char* zlimdb_strerror(int errnum)
   case zlimdb_error_read_file: return "Could not read from file";
   case zlimdb_error_write_file: return "Could not write to file";
   case zlimdb_error_subscription_not_found: return "Subscription not found";
-  case zlimdb_error_invalid_message_data: return "Invalid message data";
   case zlimdb_error_table_already_exists: return "Table already exists";
 
   default: return "Unknown error";

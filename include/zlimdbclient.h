@@ -22,7 +22,6 @@ typedef enum
   zlimdb_local_error_resolve,
   zlimdb_local_error_interrupted,
   zlimdb_local_error_timeout,
-  zlimdb_local_error_invalid_message_size,
   zlimdb_local_error_invalid_message_data,
   zlimdb_local_error_invalid_response,
   zlimdb_local_error_buffer_size,

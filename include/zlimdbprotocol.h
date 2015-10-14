@@ -49,7 +49,7 @@ typedef enum
 
 typedef enum
 {
-  zlimdb_error_invalid_message_size = 1000,
+  zlimdb_error_invalid_message_data = 1000,
   zlimdb_error_invalid_message_type,
   zlimdb_error_entity_not_found,
   zlimdb_error_table_not_found,
@@ -60,7 +60,6 @@ typedef enum
   zlimdb_error_read_file,
   zlimdb_error_write_file,
   zlimdb_error_subscription_not_found,
-  zlimdb_error_invalid_message_data,
   zlimdb_error_entity_id,
   zlimdb_error_table_already_exists,
 } zlimdb_message_error;
