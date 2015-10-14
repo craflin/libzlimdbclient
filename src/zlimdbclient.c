@@ -1254,7 +1254,7 @@ int zlimdb_sync(zlimdb* zdb, uint32_t tableId, int64_t* serverTime, int64_t* tab
 
 int zlimdb_control(zlimdb* zdb, uint32_t tableId, uint64_t entityId, uint32_t controlCode, const void* data, uint32_t size)
 {
-  if(!zdb || !tableId)
+  if(!zdb || !tableId || (size && !data) || size > ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_control_request))
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
