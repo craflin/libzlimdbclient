@@ -28,7 +28,6 @@
 #define CLOSE closesocket
 typedef int socklen_t;
 #define MSG_NOSIGNAL 0
-#define alloca(s) _alloca(s)
 #else
 typedef int SOCKET;
 #define INVALID_SOCKET (-1)
@@ -334,7 +333,7 @@ static int _zlimdb_receiveResponse(zlimdb* zdb, uint32_t requestId, void* messag
     }
     else
     {
-      void* buffer = alloca(header->size);
+      char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
       if(_zlimdb_receiveData(zdb, (zlimdb_header*)buffer + 1, header->size - sizeof(zlimdb_header)) != 0)
           return -1; 
       if(zdb->callback)
@@ -512,7 +511,8 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
   }
 
   // send login request
-  zlimdb_login_request* loginRequest = alloca(sizeof(zlimdb_login_request) + userNameLen);
+  char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+  zlimdb_login_request* loginRequest = (zlimdb_login_request*)buffer;
   loginRequest->header.size = sizeof(zlimdb_login_request) + userNameLen;
   loginRequest->header.message_type = zlimdb_message_login_request;
   loginRequest->header.request_id = 1;
@@ -642,7 +642,8 @@ int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* tableId)
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create message
-  zlimdb_add_request* addRequest = alloca(sizeof(zlimdb_add_request) + sizeof(zlimdb_table_entity) + nameLen);
+  char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+  zlimdb_add_request* addRequest = (zlimdb_add_request*)buffer;
   addRequest->header.size = sizeof(zlimdb_add_request) + sizeof(zlimdb_table_entity) + nameLen;
   addRequest->header.message_type = zlimdb_message_add_request;
   addRequest->header.request_id = ++zdb->lastRequestId << 1 | 1;
@@ -680,7 +681,8 @@ int zlimdb_find_table(zlimdb* zdb, const char* name, uint32_t* tableId)
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create message
-  zlimdb_find_request* findRequest = alloca(sizeof(zlimdb_find_request) + sizeof(zlimdb_table_entity) + nameLen);
+  char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+  zlimdb_find_request* findRequest = (zlimdb_find_request*)buffer;
   findRequest->header.size = sizeof(zlimdb_find_request) + sizeof(zlimdb_table_entity) + nameLen;
   findRequest->header.message_type = zlimdb_message_find_request;
   findRequest->header.request_id = ++zdb->lastRequestId << 1 | 1;
@@ -718,7 +720,8 @@ int zlimdb_copy_table(zlimdb* zdb, uint32_t tableId, const char* newName, uint32
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create message
-  zlimdb_copy_request* copyRequest = alloca(sizeof(zlimdb_copy_request) + sizeof(zlimdb_table_entity) + nameLen);
+  char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+  zlimdb_copy_request* copyRequest = (zlimdb_copy_request*)buffer;
   copyRequest->header.size = sizeof(zlimdb_copy_request) + sizeof(zlimdb_table_entity) + nameLen;
   copyRequest->header.message_type = zlimdb_message_copy_request;
   copyRequest->header.request_id = ++zdb->lastRequestId << 1 | 1;
@@ -758,7 +761,7 @@ int zlimdb_add_user(zlimdb* zdb, const char* userName, const char* password)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   // create user table
-  char* tableName = alloca(13 + userNameLen);
+  char tableName[ZLIMDB_MAX_MESSAGE_SIZE];
   memcpy(tableName, "users/", 6);
   memcpy(tableName + 6, userName, userNameLen);
   memcpy(tableName + 6 + userNameLen, "/user", 5);
@@ -791,7 +794,8 @@ int zlimdb_add(zlimdb* zdb, uint32_t tableId, const zlimdb_entity* data, uint64_
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create message
-  zlimdb_add_request* addRequest = alloca(sizeof(zlimdb_add_request) + data->size);
+  char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+  zlimdb_add_request* addRequest = (zlimdb_add_request*)buffer;
   addRequest->header.size = sizeof(zlimdb_add_request) + data->size;
   addRequest->header.message_type = zlimdb_message_add_request;
   addRequest->header.request_id = ++zdb->lastRequestId << 1 | 1;
@@ -820,7 +824,8 @@ int zlimdb_update(zlimdb* zdb, uint32_t tableId, const zlimdb_entity* data)
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create message
-  zlimdb_update_request* updateRequest = alloca(sizeof(zlimdb_update_request) + data->size);
+  char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+  zlimdb_update_request* updateRequest = (zlimdb_update_request*)buffer;
   updateRequest->header.size = sizeof(zlimdb_update_request) + data->size;
   updateRequest->header.message_type = zlimdb_message_update_request;
   updateRequest->header.request_id = ++zdb->lastRequestId << 1 | 1;
@@ -1101,7 +1106,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
             zdb->state = _zlimdb_state_error;
             return zlimdbErrno = zlimdb_local_error_invalid_message_data, -1;
           }
-          void* compressedData = alloca(dataSize);
+          char compressedData[ZLIMDB_MAX_MESSAGE_SIZE];
           if(_zlimdb_receiveResponseData(zdb, &header, compressedData, dataSize) != 0)
               return -1;
           uint16_t rawDataSize = *(const uint16_t*)compressedData;
@@ -1164,7 +1169,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
       }
       else
       {
-        void* buffer = alloca(header.size);
+        char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
         if(_zlimdb_receiveData(zdb, (zlimdb_header*)buffer + 1, header.size - sizeof(zlimdb_header)) != 0)
             return -1; 
         if(zdb->callback)
@@ -1256,7 +1261,8 @@ int zlimdb_control(zlimdb* zdb, uint32_t tableId, uint64_t entityId, uint32_t co
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create message
-  zlimdb_control_request* controlRequest = alloca(sizeof(zlimdb_control_request) + size);;
+  char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+  zlimdb_control_request* controlRequest = (zlimdb_control_request*)buffer;
   controlRequest->header.size = sizeof(zlimdb_control_request) + size;
   controlRequest->header.message_type = zlimdb_message_control_request;
   controlRequest->header.request_id = ++zdb->lastRequestId << 1 | 1;
@@ -1320,7 +1326,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
         return -1;
       assert(!(header.flags & zlimdb_header_flag_compressed));
       size_t bufferSize = header.size;
-      void* buffer = alloca(bufferSize);
+      char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
       if(_zlimdb_receiveData(zdb, (zlimdb_header*)buffer + 1, bufferSize - sizeof(zlimdb_header)) != 0)
         return -1;
       if(zdb->callback)
@@ -1356,7 +1362,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
         return -1;
       assert(!(header.flags & zlimdb_header_flag_compressed));
       size_t bufferSize = header.size;
-      void* buffer = alloca(bufferSize);
+      char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
       if(zlimdb_receiveData(zdb, (zlimdb_header*)buffer + 1, bufferSize - sizeof(zlimdb_header)) != 0)
         return -1;
       if(zdb->callback)
