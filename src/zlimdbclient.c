@@ -338,8 +338,8 @@ static int _zlimdb_receiveResponse(zlimdb* zdb, uint32_t requestId, void* messag
       response->next = 0;
       if(request->response)
       {
-        request->response->last = response;
         request->response->last->next = response;
+        request->response->last = response;
       }
       else
       {
@@ -1245,8 +1245,8 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
         response->next = 0;
         if(request->response)
         {
-          request->response->last = response;
           request->response->last->next = response;
+          request->response->last = response;
         }
         else
         {
