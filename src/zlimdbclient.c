@@ -580,7 +580,7 @@ int zlimdb_is_connected(zlimdb* zdb)
   return 0;
 }
 
-int zlimdb_errno(zlimdb* zdb)
+int zlimdb_errno()
 {
   return zlimdbErrno;
 }
