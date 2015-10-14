@@ -82,6 +82,8 @@ struct _zlimdb_
   void* userData;
   uint32_t lastRequestId;
   _zlimdb_requestData* openRequest;
+  _zlimdb_requestData* unusedRequest;
+  _zlimdb_requestData requestData;
 };
 
 #ifdef _MSC_VER
@@ -412,6 +414,8 @@ zlimdb* zlimdb_create(zlimdb_callback callback, void* userData)
 
   zdb->lastRequestId = 0;
   zdb->openRequest = 0;
+  zdb->requestData.next = 0;
+  zdb->unusedRequest = &zdb->requestData;
   zdb->socket = INVALID_SOCKET;
 #ifdef _WIN32
   zdb->hInterruptEvent = WSA_INVALID_EVENT;
@@ -432,7 +436,6 @@ zlimdb* zlimdb_create(zlimdb_callback callback, void* userData)
   }
 #endif
   zdb->state = _zlimdb_state_disconnected;
-  zdb->socket = INVALID_SOCKET;
   zdb->callback = callback;
   zdb->userData = userData;
   return zlimdbErrno = zlimdb_local_error_none, zdb;
@@ -459,7 +462,14 @@ int zlimdb_free(zlimdb* zdb)
     {
       next = i->next;
       _zlimdb_freeReponses(i->response);
-      free(i);
+      if(i != &zdb->requestData)
+        free(i);
+    }
+    for(_zlimdb_requestData* i = zdb->unusedRequest, * next; i; i = next)
+    {
+      next = i->next;
+      if(i != &zdb->requestData)
+        free(i);
     }
   }
   free(zdb);
@@ -902,9 +912,15 @@ int zlimdb_query(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create request data
-  _zlimdb_requestData* requestData = malloc(sizeof(_zlimdb_requestData)); 
-  if(!requestData)
-    return zlimdbErrno = zlimdb_local_error_system, -1;
+  _zlimdb_requestData* requestData = zdb->unusedRequest;
+  if(requestData)
+    zdb->unusedRequest = requestData->next;
+  else
+  {
+    requestData = malloc(sizeof(_zlimdb_requestData)); 
+    if(!requestData)
+      return zlimdbErrno = zlimdb_local_error_system, -1;
+  }
   requestData->next = zdb->openRequest;
   requestData->requestId = ++zdb->lastRequestId << 1 | 1;
   requestData->response = 0;
@@ -924,7 +940,8 @@ int zlimdb_query(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t
   if(_zlimdb_sendRequest(zdb, &queryRequest.header) != 0)
   {
     zdb->openRequest = requestData->next;
-    free(requestData);
+    requestData->next = zdb->unusedRequest;
+    zdb->unusedRequest = requestData;
     return -1;
   }
 
@@ -948,7 +965,8 @@ int zlimdb_query_entity(zlimdb* zdb, uint32_t tableId, uint64_t entityId, void* 
   _zlimdb_requestData* request = zdb->openRequest;
   zdb->openRequest = request->next;
   _zlimdb_freeReponses(request->response);
-  free(request);
+  request->next = zdb->unusedRequest;
+  zdb->unusedRequest = request;
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
@@ -961,9 +979,15 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create request data
-  _zlimdb_requestData* requestData = malloc(sizeof(_zlimdb_requestData)); 
-  if(!requestData)
-    return zlimdbErrno = zlimdb_local_error_system, -1;
+  _zlimdb_requestData* requestData = zdb->unusedRequest;
+  if(requestData)
+    zdb->unusedRequest = requestData->next;
+  else
+  {
+    requestData = malloc(sizeof(_zlimdb_requestData)); 
+    if(!requestData)
+      return zlimdbErrno = zlimdb_local_error_system, -1;
+  }
   requestData->next = zdb->openRequest;
   requestData->requestId = ++zdb->lastRequestId << 1 | 1;
   requestData->response = 0;
@@ -983,7 +1007,8 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint
   if(_zlimdb_sendRequest(zdb, &subscribeRequest.header) != 0)
   {
     zdb->openRequest = requestData->next;
-    free(requestData);
+    requestData->next = zdb->unusedRequest;
+    zdb->unusedRequest = requestData;
     return -1;
   }
 
@@ -1011,7 +1036,8 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
     {
       _zlimdb_freeReponses(request->response);
       zdb->openRequest = request->next;
-      free(request);
+      request->next = zdb->unusedRequest;
+      zdb->unusedRequest = request;
     }
     return zlimdbErrno = zlimdb_local_error_none, -1;
   default:
@@ -1032,7 +1058,8 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
         _zlimdb_copyResponseData(zdb, response, data, *size); // get errno
         _zlimdb_freeReponses(response);
         zdb->openRequest = request->next;
-        free(request);
+        request->next = zdb->unusedRequest;
+        zdb->unusedRequest = request;
         return -1;
       }
       if(header->flags & zlimdb_header_flag_compressed)
