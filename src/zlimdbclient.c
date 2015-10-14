@@ -470,7 +470,10 @@ int zlimdb_free(zlimdb* zdb)
 
 int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* userName, const char* password)
 {
-  if(!zdb)
+  if(!zdb || !server || !userName || !password)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+  size_t userNameLen = strlen(userName);
+  if(userNameLen > ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_login_request))
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_disconnected)
@@ -509,13 +512,12 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
   }
 
   // send login request
-  size_t usernameLen = strlen(userName);
-  zlimdb_login_request* loginRequest = alloca(sizeof(zlimdb_login_request) + usernameLen);
-  loginRequest->header.size = sizeof(zlimdb_login_request) + usernameLen;
+  zlimdb_login_request* loginRequest = alloca(sizeof(zlimdb_login_request) + userNameLen);
+  loginRequest->header.size = sizeof(zlimdb_login_request) + userNameLen;
   loginRequest->header.message_type = zlimdb_message_login_request;
   loginRequest->header.request_id = 1;
-  loginRequest->user_name_size = usernameLen;
-  memcpy(loginRequest + 1, userName, usernameLen);
+  loginRequest->user_name_size = userNameLen;
+  memcpy(loginRequest + 1, userName, userNameLen);
   if(_zlimdb_sendRequest(zdb, &loginRequest->header) != 0)
   {
     int err = ERRNO;
@@ -630,14 +632,16 @@ const char* zlimdb_strerror(int errnum)
 
 int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* tableId)
 {
-  if(!zdb)
+  if(!zdb || !name)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+  size_t nameLen = strlen(name);
+  if(nameLen > ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_add_request) - sizeof(zlimdb_table_entity))
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create message
-  size_t nameLen = strlen(name); // todo: max length check
   zlimdb_add_request* addRequest = alloca(sizeof(zlimdb_add_request) + sizeof(zlimdb_table_entity) + nameLen);
   addRequest->header.size = sizeof(zlimdb_add_request) + sizeof(zlimdb_table_entity) + nameLen;
   addRequest->header.message_type = zlimdb_message_add_request;
@@ -666,14 +670,16 @@ int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* tableId)
 
 int zlimdb_find_table(zlimdb* zdb, const char* name, uint32_t* tableId)
 {
-  if(!zdb)
+  if(!zdb || !name)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+  size_t nameLen = strlen(name);
+  if(nameLen > ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_find_request) - sizeof(zlimdb_table_entity))
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create message
-  size_t nameLen = strlen(name);
   zlimdb_find_request* findRequest = alloca(sizeof(zlimdb_find_request) + sizeof(zlimdb_table_entity) + nameLen);
   findRequest->header.size = sizeof(zlimdb_find_request) + sizeof(zlimdb_table_entity) + nameLen;
   findRequest->header.message_type = zlimdb_message_find_request;
@@ -702,14 +708,16 @@ int zlimdb_find_table(zlimdb* zdb, const char* name, uint32_t* tableId)
 
 int zlimdb_copy_table(zlimdb* zdb, uint32_t tableId, const char* newName, uint32_t* newTableId)
 {
-  if(!zdb)
+  if(!zdb || !tableId || !newName)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+  size_t nameLen = strlen(newName);
+  if(nameLen > ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_copy_request) - sizeof(zlimdb_table_entity))
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create message
-  size_t nameLen = strlen(newName);
   zlimdb_copy_request* copyRequest = alloca(sizeof(zlimdb_copy_request) + sizeof(zlimdb_table_entity) + nameLen);
   copyRequest->header.size = sizeof(zlimdb_copy_request) + sizeof(zlimdb_table_entity) + nameLen;
   copyRequest->header.message_type = zlimdb_message_copy_request;
@@ -743,8 +751,13 @@ int zlimdb_remove_table(zlimdb* zdb, uint32_t tableId)
 
 int zlimdb_add_user(zlimdb* zdb, const char* userName, const char* password)
 {
-  // create user table
+  if(!zdb || !userName || !password)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
   size_t userNameLen = strlen(userName);
+  if(userNameLen > ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_add_request) - sizeof(zlimdb_table_entity) - 13)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+
+  // create user table
   char* tableName = alloca(13 + userNameLen);
   memcpy(tableName, "users/", 6);
   memcpy(tableName + 6, userName, userNameLen);
@@ -771,7 +784,7 @@ int zlimdb_add_user(zlimdb* zdb, const char* userName, const char* password)
 
 int zlimdb_add(zlimdb* zdb, uint32_t tableId, const zlimdb_entity* data, uint64_t* id)
 {
-  if(!zdb)
+  if(!zdb || !tableId || !data || data->size > ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_add_request))
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
@@ -800,7 +813,7 @@ int zlimdb_add(zlimdb* zdb, uint32_t tableId, const zlimdb_entity* data, uint64_
 
 int zlimdb_update(zlimdb* zdb, uint32_t tableId, const zlimdb_entity* data)
 {
-  if(!zdb)
+  if(!zdb || !tableId || data->size > ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_update_request))
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
@@ -827,7 +840,7 @@ int zlimdb_update(zlimdb* zdb, uint32_t tableId, const zlimdb_entity* data)
 
 int zlimdb_remove(zlimdb* zdb, uint32_t tableId, uint64_t entityId)
 {
-  if(!zdb)
+  if(!zdb || !tableId || !entityId)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
@@ -854,7 +867,7 @@ int zlimdb_remove(zlimdb* zdb, uint32_t tableId, uint64_t entityId)
 
 int zlimdb_clear(zlimdb* zdb, uint32_t tableId)
 {
-  if(!zdb)
+  if(!zdb || !tableId)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
@@ -880,7 +893,7 @@ int zlimdb_clear(zlimdb* zdb, uint32_t tableId)
 
 int zlimdb_query(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t param)
 {
-  if(!zdb)
+  if(!zdb || !tableId)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
@@ -918,6 +931,9 @@ int zlimdb_query(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t
 
 int zlimdb_query_entity(zlimdb* zdb, uint32_t tableId, uint64_t entityId, void* data, uint32_t* size)
 {
+  if(!zdb || !tableId || !entityId || !data || !size)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+
   if(zlimdb_query(zdb, tableId, zlimdb_query_type_by_id, entityId) != 0)
     return -1;
   if(zlimdb_get_response(zdb, data, size) != 0)
@@ -936,7 +952,7 @@ int zlimdb_query_entity(zlimdb* zdb, uint32_t tableId, uint64_t entityId, void* 
 
 int zlimdb_subscribe(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t param)
 {
-  if(!zdb)
+  if(!zdb || !tableId)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
@@ -975,8 +991,9 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint
 
 int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
 {
-  if(!zdb)
+  if(!zdb || !data || !size)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+
   if(zdb->state != _zlimdb_state_connected)
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
@@ -1176,7 +1193,7 @@ zlimdb_entity* zlimdb_get_entity(uint32_t minSize, void** data, uint32_t* size)
 
 int zlimdb_unsubscribe(zlimdb* zdb, uint32_t tableId)
 {
-  if(!zdb)
+  if(!zdb || !tableId)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
@@ -1202,7 +1219,7 @@ int zlimdb_unsubscribe(zlimdb* zdb, uint32_t tableId)
 
 int zlimdb_sync(zlimdb* zdb, uint32_t tableId, int64_t* serverTime, int64_t* tableTime)
 {
-  if(!zdb)
+  if(!zdb || !tableId)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
@@ -1232,7 +1249,7 @@ int zlimdb_sync(zlimdb* zdb, uint32_t tableId, int64_t* serverTime, int64_t* tab
 
 int zlimdb_control(zlimdb* zdb, uint32_t tableId, uint64_t entityId, uint32_t controlCode, const void* data, uint32_t size)
 {
-  if(!zdb)
+  if(!zdb || !tableId)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)

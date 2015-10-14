@@ -43,7 +43,7 @@ typedef enum
   
 typedef enum
 {
-  zlimdb_table_clients,
+  zlimdb_table_clients = 1,
   zlimdb_table_tables,
 } zlimdb_table_id;
 
