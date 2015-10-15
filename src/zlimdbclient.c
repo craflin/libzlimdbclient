@@ -339,7 +339,7 @@ static int _zlimdb_receiveResponse(zlimdb* zdb, uint32_t requestId, void* messag
       }
       if(_zlimdb_receiveData(zdb, (zlimdb_header*)((_zlimdb_messageData*)buffer + 1) + 1, bufferSize - sizeof(zlimdb_header)) != 0)
           return -1; 
-      *((zlimdb_header*)((_zlimdb_messageData*)buffer + 1) + 1) = *header;
+      *(zlimdb_header*)((_zlimdb_messageData*)buffer + 1) = *header;
       ((_zlimdb_messageData*)buffer)->next = 0;
       if(zdb->queuedMessage)
         zdb->lastQueuedMessage->next = buffer;
@@ -1181,7 +1181,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
         }
         if(_zlimdb_receiveData(zdb, (zlimdb_header*)((_zlimdb_messageData*)buffer + 1) + 1, bufferSize - sizeof(zlimdb_header)) != 0)
             return -1; 
-        *((zlimdb_header*)((_zlimdb_messageData*)buffer + 1) + 1) = header;
+        *(zlimdb_header*)((_zlimdb_messageData*)buffer + 1) = header;
         ((_zlimdb_messageData*)buffer)->next = 0;
         if(zdb->queuedMessage)
           zdb->lastQueuedMessage->next = buffer;
