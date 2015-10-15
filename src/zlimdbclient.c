@@ -464,7 +464,7 @@ int zlimdb_free(zlimdb* zdb)
 
 int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* userName, const char* password)
 {
-  if(!zdb || !server || !userName || !password)
+  if(!zdb || !userName || !password)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
   size_t userNameLen = strlen(userName);
   if(userNameLen > ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_login_request))
