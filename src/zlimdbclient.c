@@ -1254,7 +1254,7 @@ int zlimdb_sync(zlimdb* zdb, uint32_t tableId, int64_t* serverTime, int64_t* tab
 
   // receive response
   zlimdb_sync_response syncResponse;
-  if(_zlimdb_receiveResponse(zdb, syncRequest.header.request_id, &syncResponse, sizeof(zlimdb_sync_request)) != 0)
+  if(_zlimdb_receiveResponse(zdb, syncRequest.header.request_id, &syncResponse, sizeof(zlimdb_sync_response)) != 0)
     return -1;
   if(serverTime)
     *serverTime = syncResponse.server_time;
