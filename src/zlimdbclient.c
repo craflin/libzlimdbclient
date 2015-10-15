@@ -44,10 +44,10 @@ typedef enum
   _zlimdb_state_error,
 } _zlimdb_state;
 
-typedef struct _zlimdb_responseData_ _zlimdb_responseData;
-struct _zlimdb_responseData_
+typedef struct _zlimdb_messageData_ _zlimdb_messageData;
+struct _zlimdb_messageData_
 {
-  _zlimdb_responseData* next;
+  _zlimdb_messageData* next;
 };
 
 typedef enum
@@ -62,8 +62,8 @@ struct _zlimdb_requestData_
 {
   uint32_t requestId;
   _zlimdb_requestState state;
-  _zlimdb_responseData* response;
-  _zlimdb_responseData* lastResponse;
+  _zlimdb_messageData* response;
+  _zlimdb_messageData* lastResponse;
   _zlimdb_requestData* next;
 };
 
@@ -94,9 +94,9 @@ static int __thread zlimdbErrno = zlimdb_local_error_none;
 
 static volatile long zlimdbInitCalls = 0;
 
-static void _zlimdb_freeReponses(_zlimdb_responseData* response)
+static void _zlimdb_freeReponses(_zlimdb_messageData* response)
 {
-  for(_zlimdb_responseData* next; response; response = next)
+  for(_zlimdb_messageData* next; response; response = next)
   {
     next = response->next;
     free(response);
@@ -237,7 +237,7 @@ static int _zlimdb_receiveResponseData(zlimdb* zdb, const zlimdb_header* header,
   return 0;
 }
 
-static int _zlimdb_copyResponseData(zlimdb* zdb, const _zlimdb_responseData* response, void* data, size_t maxSize)
+static int _zlimdb_copyResponseData(zlimdb* zdb, const _zlimdb_messageData* response, void* data, size_t maxSize)
 {
   assert(zdb);
   assert(response);
@@ -310,7 +310,7 @@ static int _zlimdb_receiveResponse(zlimdb* zdb, uint32_t requestId, void* messag
       return zlimdbErrno = zlimdb_local_error_invalid_response, -1;
     receiveResponse: ;
 
-      _zlimdb_responseData* response = malloc(sizeof(_zlimdb_responseData) + header->size);
+      _zlimdb_messageData* response = malloc(sizeof(_zlimdb_messageData) + header->size);
       if(!response)
       {
         zdb->state = _zlimdb_state_error;
@@ -1047,7 +1047,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
   for(;;)
   {
     // return already received response
-    _zlimdb_responseData* response = request->response;
+    _zlimdb_messageData* response = request->response;
     if(response)
     {
       const zlimdb_header* header = (const zlimdb_header*)(response + 1);
@@ -1167,7 +1167,7 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
         return zlimdbErrno = zlimdb_local_error_invalid_response, -1;
       receiveResponse: ;
 
-        _zlimdb_responseData* response = malloc(sizeof(_zlimdb_responseData) + header.size);
+        _zlimdb_messageData* response = malloc(sizeof(_zlimdb_messageData) + header.size);
         if(!response)
         {
           zdb->state = _zlimdb_state_error;
