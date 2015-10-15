@@ -48,7 +48,6 @@ typedef struct _zlimdb_responseData_ _zlimdb_responseData;
 struct _zlimdb_responseData_
 {
   _zlimdb_responseData* next;
-  _zlimdb_responseData* last;
 };
 
 typedef enum
@@ -64,6 +63,7 @@ struct _zlimdb_requestData_
   uint32_t requestId;
   _zlimdb_requestState state;
   _zlimdb_responseData* response;
+  _zlimdb_responseData* lastResponse;
   _zlimdb_requestData* next;
 };
 
@@ -323,13 +323,13 @@ static int _zlimdb_receiveResponse(zlimdb* zdb, uint32_t requestId, void* messag
       response->next = 0;
       if(request->response)
       {
-        request->response->last->next = response;
-        request->response->last = response;
+        request->lastResponse->next = response;
+        request->lastResponse = response;
       }
       else
       {
         request->response = response;
-        response->last = response;
+        request->lastResponse = response;
       }
     }
     else
@@ -923,7 +923,7 @@ int zlimdb_query(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t
   }
   requestData->next = zdb->openRequest;
   requestData->requestId = ++zdb->lastRequestId << 1 | 1;
-  requestData->response = 0;
+  requestData->response  = 0;
   requestData->state = _zlimdb_requestState_receiving;
   zdb->openRequest = requestData;
 
@@ -1101,8 +1101,6 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
       if(!(header->flags & zlimdb_header_flag_fragmented))
         request->state = _zlimdb_requestState_finished;
       request->response = response->next;
-      if(response->next)
-        response->next->last = response->last;
       free(response);
       return zlimdbErrno = zlimdb_local_error_none, 0;
     }
@@ -1182,13 +1180,13 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
         response->next = 0;
         if(request->response)
         {
-          request->response->last->next = response;
-          request->response->last = response;
+          request->lastResponse->next = response;
+          request->lastResponse = response;
         }
         else
         {
           request->response = response;
-          response->last = response;
+          request->lastResponse = response;
         }
       }
       else
