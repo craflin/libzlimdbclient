@@ -323,15 +323,10 @@ static int _zlimdb_receiveResponse(zlimdb* zdb, uint32_t requestId, void* messag
       *(zlimdb_header*)buffer = *header;
       response->next = 0;
       if(request->response)
-      {
         request->lastResponse->next = response;
-        request->lastResponse = response;
-      }
       else
-      {
         request->response = response;
-        request->lastResponse = response;
-      }
+      request->lastResponse = response;
     }
     else
     {
@@ -1170,15 +1165,10 @@ int zlimdb_get_response(zlimdb* zdb, void* data, uint32_t* size)
         *(zlimdb_header*)buffer = header;
         response->next = 0;
         if(request->response)
-        {
           request->lastResponse->next = response;
-          request->lastResponse = response;
-        }
         else
-        {
           request->response = response;
-          request->lastResponse = response;
-        }
+        request->lastResponse = response;
       }
       else
       {
