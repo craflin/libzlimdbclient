@@ -76,6 +76,7 @@ typedef enum
   zlimdb_query_type_since_id,
   zlimdb_query_type_since_time,
   zlimdb_query_type_by_id,
+  zlimdb_query_type_none,
 } zlimdb_query_type;
 
 #pragma pack(push, 1)
