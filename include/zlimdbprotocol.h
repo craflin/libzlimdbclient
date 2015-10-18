@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 #define ZLIMDB_DEFAULT_PORT 13211
-#define ZLIMDB_MAX_MESSAGE_SIZE 65553
+#define ZLIMDB_MAX_MESSAGE_SIZE (sizeof(zlimdb_add_request) + 0xffff)
 
 typedef enum
 {
