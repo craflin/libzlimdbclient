@@ -52,15 +52,15 @@ int zlimdb_update(zlimdb* zdb, uint32_t table_id, const zlimdb_entity* data);
 int zlimdb_remove(zlimdb* zdb, uint32_t table_id, uint64_t entity_id);
 int zlimdb_clear(zlimdb* zdb, uint32_t table_id);
 int zlimdb_query(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
-//int zlimdb_query_entity(zlimdb* zdb, uint32_t table_id, uint64_t entityId, void* data, uint32_t* size);
+int zlimdb_query_entity(zlimdb* zdb, uint32_t table_id, uint64_t entity_id, zlimdb_entity* entity, uint32_t min_size, uint32_t max_size);
 int zlimdb_subscribe(zlimdb* zdb, uint32_t table_id, zlimdb_query_type type, uint64_t param);
 int zlimdb_get_response(zlimdb* zdb, zlimdb_header* message, uint32_t max_size);
 int zlimdb_unsubscribe(zlimdb* zdb, uint32_t table_id);
 int zlimdb_sync(zlimdb* zdb, uint32_t table_id, int64_t* server_time, int64_t* table_time);
 int zlimdb_control(zlimdb* zdb, uint32_t table_id, uint64_t entity_id, uint32_t control_code, const void* data, uint32_t size);
 
-const zlimdb_entity* zlimdb_get_first_entity(const zlimdb_header* header, uint32_t minSize);
-const zlimdb_entity* zlimdb_get_next_entity(const zlimdb_header* header, uint32_t minSize, const zlimdb_entity* entity);
+const zlimdb_entity* zlimdb_get_first_entity(const zlimdb_header* header, uint32_t min_size);
+const zlimdb_entity* zlimdb_get_next_entity(const zlimdb_header* header, uint32_t min_size, const zlimdb_entity* entity);
 
 int zlimdb_exec(zlimdb* zdb, uint32_t timeout);
 int zlimdb_interrupt(zlimdb* zdb);

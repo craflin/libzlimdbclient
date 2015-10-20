@@ -930,15 +930,16 @@ int zlimdb_query(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t
 
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
-/*
-int zlimdb_query_entity(zlimdb* zdb, uint32_t tableId, uint64_t entityId, void* data, uint32_t* size)
+
+int zlimdb_query_entity(zlimdb* zdb, uint32_t tableId, uint64_t entityId, zlimdb_entity* entity, uint32_t minSize, uint32_t maxSize)
 {
-  if(!zdb || !tableId || !entityId || !data || !size)
+  if(!zdb || !tableId || !entityId || !entity || minSize < sizeof(zlimdb_entity) || maxSize < sizeof(zlimdb_entity) || maxSize < minSize)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zlimdb_query(zdb, tableId, zlimdb_query_type_by_id, entityId) != 0)
     return -1;
-  if(zlimdb_get_response(zdb, data, size) != 0)
+  char message[ZLIMDB_MAX_MESSAGE_SIZE];
+  if(zlimdb_get_response(zdb, (zlimdb_header*)message, ZLIMDB_MAX_MESSAGE_SIZE) != 0)
     return -1;
   if(zdb->openRequest->state != _zlimdb_requestState_finished)
   {
@@ -950,9 +951,22 @@ int zlimdb_query_entity(zlimdb* zdb, uint32_t tableId, uint64_t entityId, void* 
   _zlimdb_freeMessages(request->response);
   request->next = zdb->unusedRequest;
   zdb->unusedRequest = request;
+
+  const zlimdb_entity* data = zlimdb_get_first_entity((const zlimdb_header*)message, minSize);
+  if(!data)
+  {
+    zdb->state = _zlimdb_state_error;
+    return zlimdbErrno = zlimdb_local_error_invalid_message_data, -1;
+  }
+  if(entity->size > maxSize)
+  {
+    zdb->state = _zlimdb_state_error;
+    return zlimdbErrno = zlimdb_local_error_buffer_size, -1;
+  }
+  memcpy(entity, data, entity->size);
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
-*/
+
 int zlimdb_subscribe(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t param)
 {
   if(!zdb || !tableId)
