@@ -614,6 +614,7 @@ const char* zlimdb_strerror(int errnum)
   case zlimdb_error_read_file: return "Could not read from file";
   case zlimdb_error_write_file: return "Could not write to file";
   case zlimdb_error_subscription_not_found: return "Subscription not found";
+  case zlimdb_error_entity_id: return "Invalid entity id";
   case zlimdb_error_table_already_exists: return "Table already exists";
 
   default: return "Unknown error";
