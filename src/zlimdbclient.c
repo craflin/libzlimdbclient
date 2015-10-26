@@ -889,7 +889,7 @@ int zlimdb_clear(zlimdb* zdb, uint32_t tableId)
 
 int zlimdb_query(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t param)
 {
-  if(!zdb || !tableId || type == zlimdb_query_type_none)
+  if(!zdb || !tableId || type == zlimdb_query_type_since_next)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
