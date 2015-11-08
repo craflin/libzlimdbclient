@@ -595,7 +595,7 @@ const char* zlimdb_strerror(int errnum)
   case zlimdb_local_error_not_initialized: return "Not initialized";
   case zlimdb_local_error_state: return "State error";
   case zlimdb_local_error_resolve: return "Hostname could not be resolved";
-  case zlimdb_local_error_interrupted: return "Operation was interruped";
+  case zlimdb_local_error_interrupted: return "Operation was interrupted";
   case zlimdb_local_error_timeout: return "Operation has timed out";
   case zlimdb_local_error_invalid_message_data: return "Received invalid message data";
   case zlimdb_local_error_invalid_response: return "Received invalid response";
@@ -616,6 +616,7 @@ const char* zlimdb_strerror(int errnum)
   case zlimdb_error_subscription_not_found: return "Subscription not found";
   case zlimdb_error_entity_id: return "Invalid entity id";
   case zlimdb_error_table_already_exists: return "Table already exists";
+  case zlimdb_error_responder_not_available: return "Responder not available";
 
   default: return "Unknown error";
   }

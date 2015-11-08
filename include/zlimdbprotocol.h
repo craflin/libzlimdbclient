@@ -33,6 +33,7 @@ typedef enum
   zlimdb_message_sync_request,
   zlimdb_message_sync_response,
   zlimdb_message_control_request,
+  zlimdb_message_control_response,
   zlimdb_message_clear_request,
   zlimdb_message_clear_response,
   zlimdb_message_copy_request,
@@ -62,6 +63,7 @@ typedef enum
   zlimdb_error_subscription_not_found,
   zlimdb_error_entity_id,
   zlimdb_error_table_already_exists,
+  zlimdb_error_no_responder,
 } zlimdb_message_error;
 
 typedef enum
