@@ -63,7 +63,8 @@ typedef enum
   zlimdb_error_subscription_not_found,
   zlimdb_error_entity_id,
   zlimdb_error_table_already_exists,
-  zlimdb_error_no_responder,
+  zlimdb_error_responder_not_available,
+  zlimdb_error_responder_already_present,
 } zlimdb_message_error;
 
 typedef enum
@@ -148,7 +149,16 @@ typedef struct
   uint64_t param;
 } zlimdb_query_request;
 
-typedef zlimdb_query_request zlimdb_subscribe_request;
+typedef enum
+{
+  zlimdb_subscribe_flag_responder = 0x01,
+} zlimdb_subscribe_flag;
+
+typedef struct
+{
+  zlimdb_query_request query;
+  uint8_t flags; ///< @see zlimdb_subscribe_flag
+} zlimdb_subscribe_request;
 
 typedef struct
 {

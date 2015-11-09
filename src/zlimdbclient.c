@@ -617,6 +617,7 @@ const char* zlimdb_strerror(int errnum)
   case zlimdb_error_entity_id: return "Invalid entity id";
   case zlimdb_error_table_already_exists: return "Table already exists";
   case zlimdb_error_responder_not_available: return "Responder not available";
+  case zlimdb_error_responder_already_present: return "Responder already present";
 
   default: return "Unknown error";
   }
@@ -969,7 +970,7 @@ int zlimdb_query_entity(zlimdb* zdb, uint32_t tableId, uint64_t entityId, zlimdb
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
-int zlimdb_subscribe(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t param)
+int zlimdb_subscribe(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint64_t param, uint8_t flags)
 {
   if(!zdb || !tableId)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
@@ -995,15 +996,16 @@ int zlimdb_subscribe(zlimdb* zdb, uint32_t tableId, zlimdb_query_type type, uint
 
   // create message
   zlimdb_subscribe_request subscribeRequest;
-  subscribeRequest.header.size = sizeof(zlimdb_subscribe_request);
-  subscribeRequest.header.message_type = zlimdb_message_subscribe_request;
-  subscribeRequest.header.request_id = requestData->requestId;
-  subscribeRequest.table_id = tableId;
-  subscribeRequest.type = type;
-  subscribeRequest.param = param;
+  subscribeRequest.query.header.size = sizeof(zlimdb_subscribe_request);
+  subscribeRequest.query.header.message_type = zlimdb_message_subscribe_request;
+  subscribeRequest.query.header.request_id = requestData->requestId;
+  subscribeRequest.query.table_id = tableId;
+  subscribeRequest.query.type = type;
+  subscribeRequest.query.param = param;
+  subscribeRequest.flags = flags;
 
   // send message
-  if(_zlimdb_sendRequest(zdb, &subscribeRequest.header) != 0)
+  if(_zlimdb_sendRequest(zdb, &subscribeRequest.query.header) != 0)
   {
     zdb->openRequest = requestData->next;
     requestData->next = zdb->unusedRequest;
