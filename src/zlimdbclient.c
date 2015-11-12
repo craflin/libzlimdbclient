@@ -1295,7 +1295,7 @@ int zlimdb_sync(zlimdb* zdb, uint32_t tableId, int64_t* serverTime, int64_t* tab
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
-int zlimdb_control(zlimdb* zdb, uint32_t tableId, uint64_t entityId, uint32_t controlCode, const void* data, uint32_t size)
+int zlimdb_control(zlimdb* zdb, uint32_t tableId, uint64_t entityId, uint32_t controlCode, const void* data, uint32_t size, zlimdb_header* message, uint32_t maxSize)
 {
   if(!zdb || !tableId || (size && !data) || size > ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_control_request))
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
@@ -1318,6 +1318,29 @@ int zlimdb_control(zlimdb* zdb, uint32_t tableId, uint64_t entityId, uint32_t co
   if(_zlimdb_sendRequest(zdb, &controlRequest->header) != 0)
     return -1;
 
+  // receive response
+  if(_zlimdb_receiveResponse(zdb, controlRequest->header.request_id, message, maxSize) != 0)
+    return -1;
+  return zlimdbErrno = zlimdb_local_error_none, 0;
+}
+
+int zlimdb_respond(zlimdb* zdb, uint32_t requestId, const void* data, uint32_t size)
+{
+ if(!zdb || (size && !data) || size > ZLIMDB_MAX_MESSAGE_SIZE - sizeof(zlimdb_header))
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+
+  // create message
+  char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+  zlimdb_header* response = (zlimdb_header*)buffer;
+  response->size = sizeof(zlimdb_header) + size;
+  response->message_type = zlimdb_message_control_response;
+  response->request_id = requestId;
+  if(size)
+    memcpy(response + 1, data, size);
+
+  // send message
+  if(_zlimdb_sendRequest(zdb, response) != 0)
+    return -1;
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
