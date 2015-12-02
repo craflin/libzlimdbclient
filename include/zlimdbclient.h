@@ -58,7 +58,8 @@ int zlimdb_get_response(zlimdb* zdb, zlimdb_header* message, uint32_t max_size);
 int zlimdb_unsubscribe(zlimdb* zdb, uint32_t table_id);
 int zlimdb_sync(zlimdb* zdb, uint32_t table_id, int64_t* server_time, int64_t* table_time);
 int zlimdb_control(zlimdb* zdb, uint32_t table_id, uint64_t entity_id, uint32_t control_code, const void* data, uint32_t size, zlimdb_header* message, uint32_t max_size);
-int zlimdb_respond(zlimdb* zdb, uint32_t request_id, const void* data, uint32_t size);
+int zlimdb_control_respond(zlimdb* zdb, uint32_t request_id, const void* data, uint32_t size);
+int zlimdb_control_respond_error(zlimdb* zdb, uint32_t request_id, uint16_t error);
 
 const zlimdb_entity* zlimdb_get_first_entity(const zlimdb_header* header, uint32_t min_size);
 const zlimdb_entity* zlimdb_get_next_entity(const zlimdb_header* header, uint32_t min_size, const zlimdb_entity* entity);

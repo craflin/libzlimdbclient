@@ -90,7 +90,7 @@ typedef struct
   uint32_t flags:8; ///< @see zlimdb_header_flag
   uint32_t size:24; ///< The size of the message including the header.
   uint16_t message_type; ///< @see zlimdb_message_type
-  uint32_t request_id; ///< An identifier that can be chosen by the client. The response will query the same identifier.
+  uint32_t request_id; ///< An identifier that can be chosen by the client. The response will carry the same identifier.
 } zlimdb_header;
 
 typedef struct
