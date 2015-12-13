@@ -97,7 +97,8 @@ static volatile long zlimdbInitCalls = 0;
 
 static void _zlimdb_freeMessages(_zlimdb_messageData* message)
 {
-  for(_zlimdb_messageData* next; message; message = next)
+  _zlimdb_messageData* next;
+  for(; message; message = next)
   {
     next = message->next;
     free(message);
@@ -142,7 +143,7 @@ static int _zlimdb_sendRequest(zlimdb* zdb, zlimdb_header* header)
   int res = send(zdb->socket, (const char*)header, header->size, 0);
   if(res < 0)
   {
-    zdb->state = zlimdb_state_error;
+    zdb->state = _zlimdb_state_error;
     return zlimdbErrno = zlimdb_local_error_system, -1;
   }
   assert(res == header->size);
@@ -387,11 +388,11 @@ int zlimdb_cleanup()
 zlimdb* zlimdb_create(zlimdb_callback callback, void* userData)
 {
   if(zlimdbInitCalls == 0)
-    return zlimdbErrno = zlimdb_local_error_not_initialized, 0;
+    return zlimdbErrno = zlimdb_local_error_not_initialized, (zlimdb*)0;
 
   zlimdb* zdb = malloc(sizeof(zlimdb));
   if(!zdb)
-    return zlimdbErrno = zlimdb_local_error_system, 0;
+    return zlimdbErrno = zlimdb_local_error_system, (zlimdb*)0;
 
   zdb->lastRequestId = 0;
   zdb->openRequest = 0;
@@ -414,7 +415,7 @@ zlimdb* zlimdb_create(zlimdb_callback callback, void* userData)
   if(zdb->interruptEventFd == INVALID_SOCKET)
   {
     zlimdb_free(zdb);
-    return zlimdbErrno = zlimdb_local_error_system, 0;
+    return zlimdbErrno = zlimdb_local_error_system, (zlimdb*)0;
   }
 #endif
   zdb->state = _zlimdb_state_disconnected;
@@ -440,14 +441,15 @@ int zlimdb_free(zlimdb* zdb)
     CLOSE(zdb->interruptEventFd);
 #endif
   {
-    for(_zlimdb_requestData* i = zdb->openRequest, * next; i; i = next)
+    _zlimdb_requestData* i, *next;
+    for(i = zdb->openRequest; i; i = next)
     {
       next = i->next;
       _zlimdb_freeMessages(i->response);
       if(i != &zdb->requestData)
         free(i);
     }
-    for(_zlimdb_requestData* i = zdb->unusedRequest, * next; i; i = next)
+    for(i = zdb->unusedRequest; i; i = next)
     {
       next = i->next;
       if(i != &zdb->requestData)
@@ -1454,18 +1456,18 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
     int ret = passedTicks <= timeout ? poll(fds, 2, timeout - passedTicks) : 0;
     if(ret < 0)
     {
-      zdb->state = zlimdb_state_error;
+      zdb->state = _zlimdb_state_error;
       return zlimdbErrno = zlimdb_local_error_system, -1;
     }
     if(fds[0].revents)
     {
       zlimdb_header header;
-      if(zlimdb_receiveHeader(zdb, &header) != 0)
+      if(_zlimdb_receiveHeader(zdb, &header) != 0)
         return -1;
       assert(!(header.flags & zlimdb_header_flag_compressed));
       size_t bufferSize = header.size;
       char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
-      if(zlimdb_receiveData(zdb, (zlimdb_header*)buffer + 1, bufferSize - sizeof(zlimdb_header)) != 0)
+      if(_zlimdb_receiveData(zdb, (zlimdb_header*)buffer + 1, bufferSize - sizeof(zlimdb_header)) != 0)
         return -1;
       if(zdb->callback)
       {
@@ -1487,7 +1489,7 @@ int zlimdb_exec(zlimdb* zdb, unsigned int timeout)
       return zlimdbErrno = zlimdb_local_error_timeout, -1;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     currentTick = (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-  } while(zdb->state == zlimdb_state_connected);
+  } while(zdb->state == _zlimdb_state_connected);
 #endif
   return -1;
 }
