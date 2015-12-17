@@ -152,6 +152,7 @@ typedef struct
 
 typedef enum
 {
+  zlimdb_subscribe_flag_none = 0x00,
   zlimdb_subscribe_flag_responder = 0x01,
 } zlimdb_subscribe_flag;
 

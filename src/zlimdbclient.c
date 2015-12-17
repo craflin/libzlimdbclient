@@ -1230,6 +1230,13 @@ const zlimdb_entity* zlimdb_get_next_entity(const zlimdb_header* header, uint32_
   return result;
 }
 
+const void* zlimdb_get_response_data(const zlimdb_header* header, uint32_t minSize)
+{
+  if(header->size < sizeof(zlimdb_header) + minSize)
+    return 0;
+  return header + 1;
+}
+
 /*
 zlimdb_entity* zlimdb_get_single_entity(const zlimdb_header* header, uint32_t offset, uint32_t minSize)
 {
