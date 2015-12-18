@@ -299,7 +299,7 @@ static int _zlimdb_receiveResponse(zlimdb* zdb, uint32_t requestId, void* messag
       return -1;
     if(header->request_id == requestId)
       return _zlimdb_receiveResponseData(zdb, header, header + 1, maxSize - sizeof(zlimdb_header));
-    else if(header->request_id)
+    else if(header->request_id && header->message_type != zlimdb_message_control_request)
     {
       _zlimdb_requestData* request;
       for(request = zdb->openRequest; request; request = request->next)
@@ -1159,7 +1159,7 @@ int zlimdb_get_response(zlimdb* zdb, zlimdb_header* message, uint32_t maxSize)
           request->state = _zlimdb_requestState_finished;
         return zlimdbErrno = zlimdb_local_error_none, 0;
       }
-      else if(message->request_id)
+      else if(message->request_id && message->message_type != zlimdb_message_control_request)
       {
         _zlimdb_requestData* request;
         for(request = zdb->openRequest->next; request; request = request->next)
