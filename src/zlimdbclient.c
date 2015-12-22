@@ -22,8 +22,17 @@
 #ifdef _WIN32
 #define ERRNO WSAGetLastError()
 #define SET_ERRNO(e) WSASetLastError(e)
+#ifdef EWOULDBLOCK
+#undef EWOULDBLOCK
+#endif
 #define EWOULDBLOCK WSAEWOULDBLOCK
+#ifdef EINPROGRESS
+#undef EINPROGRESS
+#endif
 #define EINPROGRESS WSAEINPROGRESS
+#ifdef EINVAL
+#undef EINVAL
+#endif
 #define EINVAL WSAEINVAL
 #define CLOSE closesocket
 typedef int socklen_t;
@@ -510,7 +519,7 @@ int zlimdb_connect(zlimdb* zdb, const char* server, uint16_t port, const char* u
   loginRequest->header.size = sizeof(zlimdb_login_request) + userNameSize;
   loginRequest->header.message_type = zlimdb_message_login_request;
   loginRequest->header.request_id = 1;
-  loginRequest->user_name_size = userNameSize;
+  loginRequest->user_name_size = (uint16_t)userNameSize;
   memcpy(loginRequest + 1, userName, userNameSize);
   if(_zlimdb_sendRequest(zdb, &loginRequest->header) != 0)
   {
@@ -646,8 +655,8 @@ int zlimdb_add_table(zlimdb* zdb, const char* name, uint32_t* tableId)
   zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(addRequest + 1);
   tableEntity->entity.id = 0;
   tableEntity->entity.time = 0;
-  tableEntity->entity.size = sizeof(zlimdb_table_entity) + nameSize;
-  tableEntity->name_size = nameSize;
+  tableEntity->entity.size = (uint16_t)(sizeof(zlimdb_table_entity) + nameSize);
+  tableEntity->name_size = (uint16_t)nameSize;
   tableEntity->flags = 0;
   memcpy(tableEntity + 1, name, nameSize);
 
@@ -685,8 +694,8 @@ int zlimdb_find_table(zlimdb* zdb, const char* name, uint32_t* tableId)
   zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(findRequest + 1);
   tableEntity->entity.id = 0;
   tableEntity->entity.time = 0;
-  tableEntity->entity.size = sizeof(zlimdb_table_entity) + nameSize;
-  tableEntity->name_size = nameSize;
+  tableEntity->entity.size = (uint16_t)(sizeof(zlimdb_table_entity) + nameSize);
+  tableEntity->name_size = (uint16_t)nameSize;
   tableEntity->flags = 0;
   memcpy(tableEntity + 1, name, nameSize);
 
@@ -724,8 +733,8 @@ int zlimdb_copy_table(zlimdb* zdb, uint32_t tableId, const char* newName, uint32
   zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(copyRequest + 1);
   tableEntity->entity.id = 0;
   tableEntity->entity.time = 0;
-  tableEntity->entity.size = sizeof(zlimdb_table_entity) + nameSize;
-  tableEntity->name_size = nameSize;
+  tableEntity->entity.size = (uint16_t)(sizeof(zlimdb_table_entity) + nameSize);
+  tableEntity->name_size = (uint16_t)nameSize;
   tableEntity->flags = 0;
   memcpy(tableEntity + 1, newName, nameSize);
 
