@@ -1222,27 +1222,27 @@ int zlimdb_get_response(zlimdb* zdb, zlimdb_header* message, uint32_t maxSize)
 const zlimdb_entity* zlimdb_get_first_entity(const zlimdb_header* header, uint32_t minSize)
 {
   if(header->size < sizeof(zlimdb_header) + sizeof(zlimdb_entity))
-    return 0;
+    return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
   const zlimdb_entity* result = (const zlimdb_entity*)(header + 1);
   if(result->size < minSize || (const char*)result + result->size > (const char*)header + header->size)
-    return 0;
+    return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
   return result;
 }
 
 const zlimdb_entity* zlimdb_get_next_entity(const zlimdb_header* header, uint32_t minSize, const zlimdb_entity* entity)
 {
   if((const char*)entity + entity->size + sizeof(zlimdb_entity) > (const char*)header + header->size)
-    return 0;
+    return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
   const zlimdb_entity* result = (const zlimdb_entity*)((const char*)entity + entity->size);
   if(result->size < minSize || (const char*)result + result->size > (const char*)header + header->size)
-    return 0;
+    return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
   return result;
 }
 
 const void* zlimdb_get_response_data(const zlimdb_header* header, uint32_t minSize)
 {
   if(header->size < sizeof(zlimdb_header) + minSize)
-    return 0;
+    return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
   return header + 1;
 }
 
