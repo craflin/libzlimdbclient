@@ -1231,12 +1231,20 @@ const zlimdb_entity* zlimdb_get_first_entity(const zlimdb_header* header, uint32
 
 const zlimdb_entity* zlimdb_get_next_entity(const zlimdb_header* header, uint32_t minSize, const zlimdb_entity* entity)
 {
-  if((const char*)entity + entity->size + sizeof(zlimdb_entity) > (const char*)header + header->size)
+  const char* end = (const char*)header + header->size;
+  if((const char*)entity + entity->size + sizeof(zlimdb_entity) > end)
     return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
   const zlimdb_entity* result = (const zlimdb_entity*)((const char*)entity + entity->size);
-  if(result->size < minSize || (const char*)result + result->size > (const char*)header + header->size)
+  if(result->size < minSize || (const char*)result + result->size > end)
     return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
   return result;
+}
+
+const void* zlimdb_get_request_data(const zlimdb_header* header, uint32_t minSize)
+{
+  if(header->size < sizeof(zlimdb_control_request) + minSize)
+    return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
+  return ((const zlimdb_control_request*)header) + 1;
 }
 
 const void* zlimdb_get_response_data(const zlimdb_header* header, uint32_t minSize)
@@ -1244,6 +1252,27 @@ const void* zlimdb_get_response_data(const zlimdb_header* header, uint32_t minSi
   if(header->size < sizeof(zlimdb_header) + minSize)
     return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
   return header + 1;
+}
+
+const zlimdb_entity* zlimdb_data_get_first_entity(const void* data, uint32_t size, uint32_t minSize)
+{
+  if(size <  sizeof(zlimdb_entity))
+    return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
+  const zlimdb_entity* result = (const zlimdb_entity*)data;
+  if(result->size < minSize || result->size > size)
+    return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
+  return result;
+}
+
+const zlimdb_entity* zlimdb_data_get_next_entity(const void* data, uint32_t size, uint32_t minSize, const zlimdb_entity* entity)
+{
+  const char* end = (const char*)data + size;
+  if((const char*)entity + entity->size + sizeof(zlimdb_entity) > end)
+    return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
+  const zlimdb_entity* result = (const zlimdb_entity*)((const char*)entity + entity->size);
+  if(result->size < minSize || (const char*)result + result->size > end)
+    return zlimdbErrno = zlimdb_local_error_invalid_message_data, 0;
+  return result;
 }
 
 /*

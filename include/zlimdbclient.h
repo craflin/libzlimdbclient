@@ -63,7 +63,10 @@ int zlimdb_control_respond_error(zlimdb* zdb, uint32_t request_id, uint16_t erro
 
 const zlimdb_entity* zlimdb_get_first_entity(const zlimdb_header* header, uint32_t min_size);
 const zlimdb_entity* zlimdb_get_next_entity(const zlimdb_header* header, uint32_t min_size, const zlimdb_entity* entity);
+const void* zlimdb_get_request_data(const zlimdb_header* header, uint32_t min_size);
 const void* zlimdb_get_response_data(const zlimdb_header* header, uint32_t min_size);
+const zlimdb_entity* zlimdb_data_get_first_entity(const void* data, uint32_t size, uint32_t min_size);
+const zlimdb_entity* zlimdb_data_get_next_entity(const void* data, uint32_t size, uint32_t min_size, const zlimdb_entity* entity);
 
 int zlimdb_exec(zlimdb* zdb, uint32_t timeout);
 int zlimdb_interrupt(zlimdb* zdb);
