@@ -972,12 +972,12 @@ int zlimdb_query_entity(zlimdb* zdb, uint32_t tableId, uint64_t entityId, zlimdb
     zdb->state = _zlimdb_state_error;
     return zlimdbErrno = zlimdb_local_error_invalid_message_data, -1;
   }
-  if(entity->size > maxSize)
+  if(data->size > maxSize)
   {
     zdb->state = _zlimdb_state_error;
     return zlimdbErrno = zlimdb_local_error_buffer_size, -1;
   }
-  memcpy(entity, data, entity->size);
+  memcpy(entity, data, data->size);
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
