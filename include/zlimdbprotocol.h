@@ -10,7 +10,7 @@ extern "C" {
 
 #define ZLIMDB_DEFAULT_PORT 13211
 #define ZLIMDB_MAX_ENTITY_SIZE 0xffff
-#define ZLIMDB_MAX_MESSAGE_SIZE (sizeof(zlimdb_add_request) + ZLIMDB_MAX_ENTITY_SIZE)
+#define ZLIMDB_MAX_MESSAGE_SIZE (128 + ZLIMDB_MAX_ENTITY_SIZE)
 
 typedef enum
 {
@@ -40,7 +40,9 @@ typedef enum
   zlimdb_message_copy_request,
   zlimdb_message_copy_response,
   zlimdb_message_find_request,
-  zlimdb_message_find_response
+  zlimdb_message_find_response,
+  zlimdb_message_replace_request,
+  zlimdb_message_replace_response,
 } zlimdb_message_type;
   
 typedef enum
@@ -134,6 +136,13 @@ typedef zlimdb_add_request zlimdb_update_request;
 typedef zlimdb_add_request zlimdb_clear_request;
 typedef zlimdb_add_request zlimdb_copy_request;
 typedef zlimdb_add_request zlimdb_find_request;
+
+typedef struct
+{
+  zlimdb_header header;
+  uint32_t table_id;
+  uint32_t source_table_id;
+} zlimdb_replace_request;
 
 typedef struct
 {
