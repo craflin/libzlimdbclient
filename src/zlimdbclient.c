@@ -751,6 +751,32 @@ int zlimdb_copy_table(zlimdb* zdb, uint32_t tableId, const char* newName, uint32
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
+int zlimdb_replace_table(zlimdb* zdb, uint32_t tableId, uint32_t sourceTableId)
+{
+  if(!zdb || !tableId || !sourceTableId)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+  if(zdb->state != _zlimdb_state_connected)
+    return zlimdbErrno = zlimdb_local_error_state, -1;
+
+  // create message
+  zlimdb_replace_request replaceRequest;
+  replaceRequest.header.size = sizeof(zlimdb_replace_request);
+  replaceRequest.header.message_type = zlimdb_message_replace_request;
+  replaceRequest.header.request_id = ++zdb->lastRequestId << 1 | 1;
+  replaceRequest.table_id = tableId;
+  replaceRequest.source_table_id = sourceTableId;
+
+  // send message
+  if(_zlimdb_sendRequest(zdb, &replaceRequest.header) != 0)
+    return -1;
+
+  // receive response
+  zlimdb_header replaceResponse;
+  if(_zlimdb_receiveResponse(zdb, replaceRequest.header.request_id, &replaceResponse, sizeof(zlimdb_header)) != 0)
+    return -1;
+  return zlimdbErrno = zlimdb_local_error_none, 0;
+}
+
 int zlimdb_remove_table(zlimdb* zdb, uint32_t tableId)
 {
   return zlimdb_remove(zdb, zlimdb_table_tables, tableId);
