@@ -203,6 +203,7 @@ typedef struct
 
 typedef zlimdb_add_response zlimdb_copy_response;
 typedef zlimdb_add_response zlimdb_find_response;
+typedef zlimdb_add_response zlimdb_rename_response;
 
 typedef struct
 {

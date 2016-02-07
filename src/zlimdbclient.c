@@ -712,56 +712,83 @@ int zlimdb_find_table(zlimdb* zdb, const char* name, uint32_t* tableId)
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
-int zlimdb_copy_table(zlimdb* zdb, uint32_t tableId, uint32_t sourceTableId)
+int zlimdb_copy_table(zlimdb* zdb, uint32_t tableId, const char* name, uint32_t* new_table_id)
 {
-  if(!zdb || !tableId || !sourceTableId)
+  if(!zdb || !tableId || !name)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+  size_t nameSize = strlen(name) + 1;
+  if(sizeof(zlimdb_copy_request) + sizeof(zlimdb_table_entity) + nameSize > ZLIMDB_MAX_MESSAGE_SIZE)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create message
-  zlimdb_copy2_request copyRequest;
-  copyRequest.header.size = sizeof(zlimdb_copy2_request) ;
-  copyRequest.header.message_type = zlimdb_message_copy_request;
-  copyRequest.header.request_id = ++zdb->lastRequestId << 1 | 1;
-  copyRequest.table_id = tableId;
-  copyRequest.source_table_id = sourceTableId;
+  char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+  zlimdb_copy_request* copyRequest = (zlimdb_copy_request*)buffer;
+  copyRequest->header.size = sizeof(zlimdb_copy_request) + sizeof(zlimdb_table_entity) + nameSize;
+  copyRequest->header.message_type = zlimdb_message_copy_request;
+  copyRequest->header.request_id = ++zdb->lastRequestId << 1 | 1;
+  copyRequest->table_id = tableId;
+  copyRequest->destination_table_id = 0;
+  zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(copyRequest + 1);
+  tableEntity->entity.id = 0;
+  tableEntity->entity.time = 0;
+  tableEntity->entity.size = (uint16_t)(sizeof(zlimdb_table_entity) + nameSize);
+  tableEntity->name_size = (uint16_t)nameSize;
+  tableEntity->flags = 0;
+  memcpy(tableEntity + 1, name, nameSize);
 
   // send message
-  if(_zlimdb_sendRequest(zdb, &copyRequest.header) != 0)
+  if(_zlimdb_sendRequest(zdb, &copyRequest->header) != 0)
     return -1;
 
   // receive response
   zlimdb_copy_response copyResponse;
-  if(_zlimdb_receiveResponse(zdb, copyRequest.header.request_id, &copyResponse, sizeof(zlimdb_copy_response)) != 0)
+  if(_zlimdb_receiveResponse(zdb, copyRequest->header.request_id, &copyResponse, sizeof(zlimdb_copy_response)) != 0)
     return -1;
+  if(new_table_id)
+    *new_table_id = (uint32_t)copyResponse.id;
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
-int zlimdb_replace_table(zlimdb* zdb, uint32_t tableId, uint32_t sourceTableId)
+int zlimdb_rename_table(zlimdb* zdb, uint32_t tableId, const char* name, uint32_t* new_table_id)
 {
-  if(!zdb || !tableId || !sourceTableId)
+  if(!zdb || !tableId || !name)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+  size_t nameSize = strlen(name) + 1;
+  if(sizeof(zlimdb_rename_request) + sizeof(zlimdb_table_entity) + nameSize > ZLIMDB_MAX_MESSAGE_SIZE)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+
   if(zdb->state != _zlimdb_state_connected)
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create message
-  zlimdb_replace_request replaceRequest;
-  replaceRequest.header.size = sizeof(zlimdb_replace_request);
-  replaceRequest.header.message_type = zlimdb_message_replace_request;
-  replaceRequest.header.request_id = ++zdb->lastRequestId << 1 | 1;
-  replaceRequest.table_id = tableId;
-  replaceRequest.source_table_id = sourceTableId;
+  char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
+  zlimdb_rename_request* renameRequest = (zlimdb_rename_request*)buffer;
+  renameRequest->header.size = sizeof(zlimdb_rename_request) + sizeof(zlimdb_table_entity) + nameSize;
+  renameRequest->header.message_type = zlimdb_message_rename_request;
+  renameRequest->header.request_id = ++zdb->lastRequestId << 1 | 1;
+  renameRequest->table_id = tableId;
+  renameRequest->destination_table_id = 0;
+  zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(renameRequest + 1);
+  tableEntity->entity.id = 0;
+  tableEntity->entity.time = 0;
+  tableEntity->entity.size = (uint16_t)(sizeof(zlimdb_table_entity) + nameSize);
+  tableEntity->name_size = (uint16_t)nameSize;
+  tableEntity->flags = 0;
+  memcpy(tableEntity + 1, name, nameSize);
 
   // send message
-  if(_zlimdb_sendRequest(zdb, &replaceRequest.header) != 0)
+  if(_zlimdb_sendRequest(zdb, &renameRequest->header) != 0)
     return -1;
 
   // receive response
-  zlimdb_header replaceResponse;
-  if(_zlimdb_receiveResponse(zdb, replaceRequest.header.request_id, &replaceResponse, sizeof(zlimdb_header)) != 0)
+  zlimdb_rename_response renameResponse;
+  if(_zlimdb_receiveResponse(zdb, renameRequest->header.request_id, &renameResponse, sizeof(zlimdb_rename_response)) != 0)
     return -1;
+  if(new_table_id)
+    *new_table_id = (uint32_t)renameResponse.id;
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
