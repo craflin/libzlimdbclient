@@ -41,8 +41,9 @@ typedef enum
   zlimdb_message_copy_response,
   zlimdb_message_find_request,
   zlimdb_message_find_response,
-  zlimdb_message_replace_request,
-  zlimdb_message_replace_response,
+  zlimdb_message_rename_request,
+  zlimdb_message_rename_response,
+  zlimdb_message_reload_request,
 } zlimdb_message_type;
   
 typedef enum
@@ -134,15 +135,17 @@ typedef struct
 
 typedef zlimdb_add_request zlimdb_update_request;
 typedef zlimdb_add_request zlimdb_clear_request;
-typedef zlimdb_add_request zlimdb_copy_request;
 typedef zlimdb_add_request zlimdb_find_request;
+typedef zlimdb_add_request zlimdb_reload_request;
 
 typedef struct
 {
   zlimdb_header header;
   uint32_t table_id;
-  uint32_t source_table_id;
-} zlimdb_replace_request;
+  uint32_t destination_table_id;
+} zlimdb_copy_request;
+
+typedef zlimdb_copy_request zlimdb_rename_request;
 
 typedef struct
 {

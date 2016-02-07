@@ -712,42 +712,30 @@ int zlimdb_find_table(zlimdb* zdb, const char* name, uint32_t* tableId)
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
-int zlimdb_copy_table(zlimdb* zdb, uint32_t tableId, const char* newName, uint32_t* newTableId)
+int zlimdb_copy_table(zlimdb* zdb, uint32_t tableId, uint32_t sourceTableId)
 {
-  if(!zdb || !tableId || !newName)
-    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
-  size_t nameSize = strlen(newName) + 1;
-  if(sizeof(zlimdb_copy_request) + sizeof(zlimdb_table_entity) + nameSize > ZLIMDB_MAX_MESSAGE_SIZE)
+  if(!zdb || !tableId || !sourceTableId)
     return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
 
   if(zdb->state != _zlimdb_state_connected)
     return zlimdbErrno = zlimdb_local_error_state, -1;
 
   // create message
-  char buffer[ZLIMDB_MAX_MESSAGE_SIZE];
-  zlimdb_copy_request* copyRequest = (zlimdb_copy_request*)buffer;
-  copyRequest->header.size = sizeof(zlimdb_copy_request) + sizeof(zlimdb_table_entity) + nameSize;
-  copyRequest->header.message_type = zlimdb_message_copy_request;
-  copyRequest->header.request_id = ++zdb->lastRequestId << 1 | 1;
-  copyRequest->table_id = tableId;
-  zlimdb_table_entity* tableEntity = (zlimdb_table_entity*)(copyRequest + 1);
-  tableEntity->entity.id = 0;
-  tableEntity->entity.time = 0;
-  tableEntity->entity.size = (uint16_t)(sizeof(zlimdb_table_entity) + nameSize);
-  tableEntity->name_size = (uint16_t)nameSize;
-  tableEntity->flags = 0;
-  memcpy(tableEntity + 1, newName, nameSize);
+  zlimdb_copy2_request copyRequest;
+  copyRequest.header.size = sizeof(zlimdb_copy2_request) ;
+  copyRequest.header.message_type = zlimdb_message_copy_request;
+  copyRequest.header.request_id = ++zdb->lastRequestId << 1 | 1;
+  copyRequest.table_id = tableId;
+  copyRequest.source_table_id = sourceTableId;
 
   // send message
-  if(_zlimdb_sendRequest(zdb, &copyRequest->header) != 0)
+  if(_zlimdb_sendRequest(zdb, &copyRequest.header) != 0)
     return -1;
 
   // receive response
   zlimdb_copy_response copyResponse;
-  if(_zlimdb_receiveResponse(zdb, copyRequest->header.request_id, &copyResponse, sizeof(zlimdb_copy_response)) != 0)
+  if(_zlimdb_receiveResponse(zdb, copyRequest.header.request_id, &copyResponse, sizeof(zlimdb_copy_response)) != 0)
     return -1;
-  if(newTableId)
-    *newTableId = (uint32_t)copyResponse.id;
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
