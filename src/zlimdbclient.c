@@ -752,6 +752,33 @@ int zlimdb_copy_table(zlimdb* zdb, uint32_t tableId, const char* name, uint32_t*
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
+int zlimdb_copy_table_replace(zlimdb* zdb, uint32_t tableId, uint32_t destinationTableId)
+{
+  if(!zdb || !tableId || !destinationTableId)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+
+  if(zdb->state != _zlimdb_state_connected)
+    return zlimdbErrno = zlimdb_local_error_state, -1;
+
+  // create message
+  zlimdb_copy_request copyRequest;
+  copyRequest.header.size = sizeof(zlimdb_copy_request);
+  copyRequest.header.message_type = zlimdb_message_copy_request;
+  copyRequest.header.request_id = ++zdb->lastRequestId << 1 | 1;
+  copyRequest.table_id = tableId;
+  copyRequest.destination_table_id = destinationTableId;
+
+  // send message
+  if(_zlimdb_sendRequest(zdb, &copyRequest.header) != 0)
+    return -1;
+
+  // receive response
+  zlimdb_copy_response copyResponse;
+  if(_zlimdb_receiveResponse(zdb, copyRequest.header.request_id, &copyResponse, sizeof(zlimdb_copy_response)) != 0)
+    return -1;
+  return zlimdbErrno = zlimdb_local_error_none, 0;
+}
+
 int zlimdb_rename_table(zlimdb* zdb, uint32_t tableId, const char* name, uint32_t* new_table_id)
 {
   if(!zdb || !tableId || !name)
@@ -789,6 +816,33 @@ int zlimdb_rename_table(zlimdb* zdb, uint32_t tableId, const char* name, uint32_
     return -1;
   if(new_table_id)
     *new_table_id = (uint32_t)renameResponse.id;
+  return zlimdbErrno = zlimdb_local_error_none, 0;
+}
+
+int zlimdb_rename_table_replace(zlimdb* zdb, uint32_t tableId, uint32_t destinationTableId)
+{
+  if(!zdb || !tableId || !destinationTableId)
+    return zlimdbErrno = zlimdb_local_error_invalid_parameter, -1;
+
+  if(zdb->state != _zlimdb_state_connected)
+    return zlimdbErrno = zlimdb_local_error_state, -1;
+
+  // create message
+  zlimdb_rename_request renameRequest;
+  renameRequest.header.size = sizeof(zlimdb_rename_request);
+  renameRequest.header.message_type = zlimdb_message_rename_request;
+  renameRequest.header.request_id = ++zdb->lastRequestId << 1 | 1;
+  renameRequest.table_id = tableId;
+  renameRequest.destination_table_id = destinationTableId;
+
+  // send message
+  if(_zlimdb_sendRequest(zdb, &renameRequest.header) != 0)
+    return -1;
+
+  // receive response
+  zlimdb_rename_response renameResponse;
+  if(_zlimdb_receiveResponse(zdb, renameRequest.header.request_id, &renameResponse, sizeof(zlimdb_rename_response)) != 0)
+    return -1;
   return zlimdbErrno = zlimdb_local_error_none, 0;
 }
 
