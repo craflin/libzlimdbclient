@@ -44,6 +44,7 @@ typedef enum
   zlimdb_message_rename_request,
   zlimdb_message_rename_response,
   zlimdb_message_reload_request,
+  zlimdb_message_shutdown_request,
 } zlimdb_message_type;
   
 typedef enum
